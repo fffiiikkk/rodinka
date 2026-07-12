@@ -46,7 +46,12 @@ router.post('/', requireAdmin, async (req, res, next) => {
   try {
     const data = MotdSchema.parse(req.body);
     const motd = await prisma.messageOfTheDay.create({
-      data: { ...data, validFrom: new Date(data.validFrom), validTo: new Date(data.validTo), authorId: req.user!.id },
+      data: {
+        ...data,
+        validFrom: new Date(data.validFrom),
+        validTo: new Date(data.validTo),
+        author: { connect: { id: req.user!.id } },
+      } as any,
     });
     res.status(201).json({ motd });
   } catch (e) { next(e); }
