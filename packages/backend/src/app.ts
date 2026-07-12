@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import path from 'path';
+import { existsSync } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { config } from './config.js';
 import { logger } from './logger.js';
@@ -109,9 +110,9 @@ export function createApp() {
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/ics', icsRouter);
 
-  // Serve frontend build in production (frontend builds into backend/dist/public)
-  if (config.isProduction) {
-    const frontendDist = path.resolve(__dirname, '..', 'public');
+  // Serve frontend build when public dir exists (production & E2E; not local dev)
+  const frontendDist = path.resolve(__dirname, '..', 'public');
+  if (existsSync(frontendDist)) {
     app.use(express.static(frontendDist));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(frontendDist, 'index.html'));

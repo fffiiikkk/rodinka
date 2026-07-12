@@ -115,7 +115,7 @@ function LoginForm() {
             </div>
 
             {loginError && (
-              <p className="text-sm text-danger font-medium text-center">
+              <p role="alert" className="text-sm text-danger font-medium text-center">
                 {t('auth.loginError')}
               </p>
             )}
