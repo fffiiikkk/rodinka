@@ -1,0 +1,391 @@
+// Rodinný kalendář — Prisma Schema
+// Authoritative data model. See docs/architecture/03-data-model.md for intent.
+// After every change: migrate dev → generate → update services → npm run verify
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum Role {
+  PARENT
+  GRANDPARENT
+  RELATIVE
+  KID
+  GUEST
+}
+
+enum Language {
+  CS
+  EN
+}
+
+enum ColorMode {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum EventStatus {
+  PROPOSED
+  APPROVED
+  CANCELLED
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  UNAVAILABLE
+  ON_CALL
+}
+
+enum MotdAudience {
+  ALL
+  KIDS
+  ADULTS
+}
+
+enum BadgeRuleType {
+  COUNT
+  STREAK
+  FIRST
+  SPECIAL
+}
+
+enum BadgeTier {
+  BRONZE
+  SILVER
+  GOLD
+}
+
+enum NotificationChannel {
+  EMAIL
+  PUSH
+  SMS
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+}
+
+// ─────────────────────────────────────────────
+// Users & Auth
+// ─────────────────────────────────────────────
+
+model User {
+  id                String    @id @default(cuid())
+  username          String    @unique
+  passwordHash      String
+  name              String
+  email             String    @unique
+  mobile            String?
+  dateOfBirth       DateTime?
+  role              Role
+  photoPath         String?
+  preferredLanguage Language  @default(CS)
+  theme             String    @default("klasika")
+  colorMode         ColorMode @default(SYSTEM)
+  // Notification preferences (stored as JSON for flexibility)
+  notifPrefs        Json      @default("{\"emailReminders\":true,\"emailWeeklyDigest\":true,\"pushReminders\":true,\"pushProposalUpdates\":true,\"reminderMinutesBefore\":60}")
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // How this person relates to the primary children (e.g. "Tatínek", "Babička", "Strýc")
+  relationship      String?
+  // Familiar/family nickname (e.g. "Jenda" for Jan, "Kačka" for Kateřina)
+  nickname          String?
+
+  // ICS feed secret token
+  icsToken          String    @unique @default(cuid())
+
+  // Impersonation: who is the admin impersonating this user?
+  impersonatedById  String?
+
+  createdEvents         Event[]              @relation("EventCreator")
+  transportEvents       Event[]              @relation("EventTransport")
+  participantIn         EventParticipant[]
+  availabilities        Availability[]
+  passwordResetTokens   PasswordResetToken[]
+  auditLogsActor        AuditLog[]           @relation("AuditActor")
+  auditLogsTarget       AuditLog[]           @relation("AuditTarget")
+  activityEvents        ActivityEvent[]
+  userBadges            UserBadge[]
+  pushSubscriptions     PushSubscription[]
+  motdsAuthored         MessageOfTheDay[]
+  uploadedAttachments   EventAttachment[]
+  notificationLogs      NotificationLog[]
+  eventTemplates        EventTemplate[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// ─────────────────────────────────────────────
+// Event Types (admin-managed catalog)
+// ─────────────────────────────────────────────
+
+model EventType {
+  id                     String   @id @default(cuid())
+  slug                   String   @unique
+  nameCs                 String
+  nameEn                 String
+  icon                   String
+  color                  String
+  groupCs                String
+  groupEn                String
+  defaultDurationMinutes Int      @default(60)
+  defaultReminderMinutes Int      @default(60)
+  sortOrder              Int      @default(0)
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now())
+
+  events    Event[]
+  templates EventTemplate[]
+}
+
+// ─────────────────────────────────────────────
+// Events
+// ─────────────────────────────────────────────
+
+model Event {
+  id             String      @id @default(cuid())
+  title          String
+  description    String?
+  eventTypeId    String?
+  eventType      EventType?  @relation(fields: [eventTypeId], references: [id])
+  start          DateTime
+  end            DateTime
+  allDay         Boolean     @default(false)
+  location       String?
+  colorOverride  String?
+  createdById    String
+  createdBy      User        @relation("EventCreator", fields: [createdById], references: [id])
+  recurrenceRule String?     // iCal RRULE string
+  parentEventId  String?
+  parentEvent    Event?      @relation("RecurrenceExceptions", fields: [parentEventId], references: [id])
+  exceptions     Event[]     @relation("RecurrenceExceptions")
+  status         EventStatus @default(APPROVED)
+  isHoliday      Boolean     @default(false)
+
+  // Transport responsibility — who gets the child there/back
+  transportUserId      String?          // registered user (parent, grandparent, even kid themselves)
+  transportUser        User?            @relation("EventTransport", fields: [transportUserId], references: [id])
+  transportExternalName String?         @db.VarChar(100)  // external person not in system
+  transportNote        String?          @db.VarChar(300)  // "walks", "train 15:30", extra info
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  participants     EventParticipant[]
+  attachments      EventAttachment[]
+  notificationLogs NotificationLog[]
+}
+
+model EventParticipant {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, userId])
+}
+
+model EventAttachment {
+  id            String   @id @default(cuid())
+  eventId       String
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fileName      String
+  mimeType      String
+  size          Int
+  storagePath   String
+  thumbnailPath String?
+  uploadedById  String
+  uploadedBy    User     @relation(fields: [uploadedById], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+model EventTemplate {
+  id                   String    @id @default(cuid())
+  name                 String
+  eventTypeId          String?
+  eventType            EventType? @relation(fields: [eventTypeId], references: [id])
+  defaultTitle         String
+  defaultDurationMinutes Int      @default(60)
+  defaultLocation      String?
+  defaultParticipantIds String[]
+  recurrenceRule       String?
+  createdById          String
+  createdBy            User      @relation(fields: [createdById], references: [id])
+  isPublic             Boolean   @default(false)
+  sortOrder            Int       @default(0)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Availability
+// ─────────────────────────────────────────────
+
+model Availability {
+  id           String             @id @default(cuid())
+  userId       String
+  user         User               @relation(fields: [userId], references: [id])
+  dateFrom     DateTime
+  dateTo       DateTime
+  status       AvailabilityStatus
+  location     String?
+  note         String?
+  // External coverage added by admin (not a real user)
+  isExternal   Boolean            @default(false)
+  externalName String?            @db.VarChar(100)
+  externalRole String?            @db.VarChar(100)  // e.g. "Kamarád rodiny", "Hlídač"
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Message of the Day
+// ─────────────────────────────────────────────
+
+model MessageOfTheDay {
+  id        String       @id @default(cuid())
+  textCs    String
+  textEn    String
+  authorId  String
+  author    User         @relation(fields: [authorId], references: [id])
+  validFrom DateTime
+  validTo   DateTime
+  audience  MotdAudience @default(ALL)
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Badges & Achievements
+// ─────────────────────────────────────────────
+
+model BadgeDefinition {
+  id            String        @id @default(cuid())
+  key           String        @unique
+  nameCs        String
+  nameEn        String
+  descriptionCs String
+  descriptionEn String
+  icon          String
+  category      String
+  ruleType      BadgeRuleType
+  metric        String
+  threshold     Int           @default(1)
+  tier          BadgeTier     @default(BRONZE)
+  isActive      Boolean       @default(true)
+  sortOrder     Int           @default(0)
+  createdAt     DateTime      @default(now())
+
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+  badgeDefinitionId String
+  badgeDefinition   BadgeDefinition @relation(fields: [badgeDefinitionId], references: [id])
+  idempotencyKey    String          @unique
+  awardedAt         DateTime        @default(now())
+  seenAt            DateTime?
+
+  @@unique([userId, badgeDefinitionId])
+}
+
+// ─────────────────────────────────────────────
+// Activity Log (append-only)
+// ─────────────────────────────────────────────
+
+model ActivityEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // ActivityEventType string
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, type, createdAt])
+}
+
+// ─────────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────────
+
+model NotificationLog {
+  id               String              @id @default(cuid())
+  userId           String
+  user             User                @relation(fields: [userId], references: [id])
+  eventId          String?
+  event            Event?              @relation(fields: [eventId], references: [id])
+  channel          NotificationChannel
+  notificationType String
+  idempotencyKey   String              @unique
+  sentAt           DateTime            @default(now())
+  error            String?
+  status           NotificationStatus  @default(SENT)
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// Feature Flags
+// ─────────────────────────────────────────────
+
+model FeatureFlag {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Audit Log (append-only)
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  actor      User     @relation("AuditActor", fields: [userId], references: [id])
+  targetId   String?
+  target     User?    @relation("AuditTarget", fields: [targetId], references: [id])
+  action     String
+  entityType String?
+  entityId   String?
+  diff       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}

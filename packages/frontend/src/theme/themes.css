@@ -1,0 +1,215 @@
+/* ============================================================
+   Rodinný kalendář — Theme CSS Custom Properties
+   Applied via :root[data-theme][data-color-mode]
+   ============================================================ */
+
+/* ── Klasika (classic family) ───────────────────────────── */
+:root[data-theme="klasika"][data-color-mode="light"],
+:root[data-theme="klasika"] {
+  --color-primary-50: #eef2ff;
+  --color-primary-100: #e0e7ff;
+  --color-primary-200: #c7d2fe;
+  --color-primary-300: #a5b4fc;
+  --color-primary-400: #818cf8;
+  --color-primary-500: #6366f1;
+  --color-primary-600: #4f46e5;
+  --color-primary-700: #4338ca;
+  --color-primary-800: #3730a3;
+  --color-primary-900: #312e81;
+  --color-primary: #6366f1;
+  --color-accent: #f59e0b;
+  --color-accent-light: #fde68a;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f8fafc;
+  --color-surface-overlay: #f1f5f9;
+  --color-ink: #0f172a;
+  --color-ink-muted: #475569;
+  --color-ink-faint: #94a3b8;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --radius: 0.75rem;
+  --radius-sm: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --shadow-card: 0 1px 3px rgba(0,0,0,.06), 0 2px 6px rgba(0,0,0,.04);
+  --shadow-raised: 0 6px 20px rgba(0,0,0,.1), 0 2px 6px rgba(0,0,0,.06);
+  --shadow-modal: 0 24px 60px rgba(0,0,0,.18), 0 8px 24px rgba(0,0,0,.1);
+}
+
+:root[data-theme="klasika"][data-color-mode="dark"] {
+  --color-primary: #818cf8;
+  --color-accent: #fbbf24;
+  --color-accent-light: #78350f;
+  --color-surface: #0f172a;
+  --color-surface-raised: #1e293b;
+  --color-surface-overlay: #334155;
+  --color-ink: #f1f5f9;
+  --color-ink-muted: #94a3b8;
+  --color-ink-faint: #475569;
+  --color-border: #334155;
+  --color-border-strong: #475569;
+  --shadow-modal: 0 24px 60px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.3);
+}
+
+/* ── Oceán (swimming vibe) ──────────────────────────────── */
+:root[data-theme="ocean"][data-color-mode="light"],
+:root[data-theme="ocean"] {
+  --color-primary: #0ea5e9;
+  --color-accent: #06b6d4;
+  --color-accent-light: #cffafe;
+  --color-surface: #f0f9ff;
+  --color-surface-raised: #e0f2fe;
+  --color-surface-overlay: #bae6fd;
+  --color-ink: #0c4a6e;
+  --color-ink-muted: #0369a1;
+  --color-ink-faint: #7dd3fc;
+  --color-border: #bae6fd;
+  --color-border-strong: #7dd3fc;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --radius: 0.75rem;
+  --radius-sm: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --shadow-card: 0 1px 3px rgba(14,165,233,.1), 0 2px 6px rgba(14,165,233,.06);
+  --shadow-raised: 0 6px 20px rgba(14,165,233,.15), 0 2px 6px rgba(14,165,233,.08);
+  --shadow-modal: 0 24px 60px rgba(0,0,0,.18), 0 8px 24px rgba(14,165,233,.12);
+}
+
+:root[data-theme="ocean"][data-color-mode="dark"] {
+  --color-primary: #38bdf8;
+  --color-accent: #22d3ee;
+  --color-accent-light: #164e63;
+  --color-surface: #082f49;
+  --color-surface-raised: #0c4a6e;
+  --color-surface-overlay: #075985;
+  --color-ink: #e0f2fe;
+  --color-ink-muted: #7dd3fc;
+  --color-ink-faint: #0369a1;
+  --color-border: #0369a1;
+  --color-border-strong: #0284c7;
+}
+
+/* ── Led (ice hockey cool) ──────────────────────────────── */
+:root[data-theme="led"][data-color-mode="light"],
+:root[data-theme="led"] {
+  --color-primary: #64748b;
+  --color-accent: #38bdf8;
+  --color-accent-light: #e0f2fe;
+  --color-surface: #f8fafc;
+  --color-surface-raised: #f1f5f9;
+  --color-surface-overlay: #e2e8f0;
+  --color-ink: #0f172a;
+  --color-ink-muted: #334155;
+  --color-ink-faint: #94a3b8;
+  --color-border: #cbd5e1;
+  --color-border-strong: #94a3b8;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --radius: 0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --shadow-card: 0 1px 3px rgba(100,116,139,.08), 0 2px 6px rgba(100,116,139,.04);
+  --shadow-raised: 0 6px 20px rgba(100,116,139,.12), 0 2px 6px rgba(100,116,139,.06);
+  --shadow-modal: 0 24px 60px rgba(0,0,0,.18), 0 8px 24px rgba(0,0,0,.1);
+}
+
+:root[data-theme="led"][data-color-mode="dark"] {
+  --color-primary: #94a3b8;
+  --color-accent: #7dd3fc;
+  --color-accent-light: #1e3a5f;
+  --color-surface: #020617;
+  --color-surface-raised: #0f172a;
+  --color-surface-overlay: #1e293b;
+  --color-ink: #f1f5f9;
+  --color-ink-muted: #94a3b8;
+  --color-ink-faint: #475569;
+  --color-border: #1e293b;
+  --color-border-strong: #334155;
+}
+
+/* ── Léto (warm summer) ─────────────────────────────────── */
+:root[data-theme="leto"][data-color-mode="light"],
+:root[data-theme="leto"] {
+  --color-primary: #f97316;
+  --color-accent: #eab308;
+  --color-accent-light: #fefce8;
+  --color-surface: #fffbeb;
+  --color-surface-raised: #fef3c7;
+  --color-surface-overlay: #fde68a;
+  --color-ink: #431407;
+  --color-ink-muted: #9a3412;
+  --color-ink-faint: #fdba74;
+  --color-border: #fed7aa;
+  --color-border-strong: #fdba74;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --radius: 1rem;
+  --radius-sm: 0.625rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 2rem;
+  --shadow-card: 0 1px 3px rgba(249,115,22,.1), 0 2px 6px rgba(249,115,22,.06);
+  --shadow-raised: 0 6px 20px rgba(249,115,22,.18), 0 2px 6px rgba(249,115,22,.08);
+  --shadow-modal: 0 24px 60px rgba(0,0,0,.18), 0 8px 24px rgba(249,115,22,.12);
+}
+
+:root[data-theme="leto"][data-color-mode="dark"] {
+  --color-primary: #fb923c;
+  --color-accent: #facc15;
+  --color-accent-light: #451a03;
+  --color-surface: #1c0a03;
+  --color-surface-raised: #431407;
+  --color-surface-overlay: #7c2d12;
+  --color-ink: #fff7ed;
+  --color-ink-muted: #fed7aa;
+  --color-ink-faint: #9a3412;
+  --color-border: #7c2d12;
+  --color-border-strong: #9a3412;
+}
+
+/* ── Les (forest greens) ────────────────────────────────── */
+:root[data-theme="les"][data-color-mode="light"],
+:root[data-theme="les"] {
+  --color-primary: #22c55e;
+  --color-accent: #84cc16;
+  --color-accent-light: #f0fdf4;
+  --color-surface: #f0fdf4;
+  --color-surface-raised: #dcfce7;
+  --color-surface-overlay: #bbf7d0;
+  --color-ink: #052e16;
+  --color-ink-muted: #166534;
+  --color-ink-faint: #86efac;
+  --color-border: #bbf7d0;
+  --color-border-strong: #86efac;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --radius: 0.875rem;
+  --radius-sm: 0.5rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --shadow-card: 0 1px 3px rgba(34,197,94,.1), 0 2px 6px rgba(34,197,94,.06);
+  --shadow-raised: 0 6px 20px rgba(34,197,94,.14), 0 2px 6px rgba(34,197,94,.08);
+  --shadow-modal: 0 24px 60px rgba(0,0,0,.18), 0 8px 24px rgba(34,197,94,.1);
+}
+
+:root[data-theme="les"][data-color-mode="dark"] {
+  --color-primary: #4ade80;
+  --color-accent: #a3e635;
+  --color-accent-light: #052e16;
+  --color-surface: #031a0e;
+  --color-surface-raised: #052e16;
+  --color-surface-overlay: #14532d;
+  --color-ink: #f0fdf4;
+  --color-ink-muted: #86efac;
+  --color-ink-faint: #166534;
+  --color-border: #14532d;
+  --color-border-strong: #166534;
+}

@@ -1,0 +1,212 @@
+{
+  "app": {
+    "name": "Rodinka",
+    "tagline": "Vše pod kontrolou"
+  },
+  "nav": {
+    "calendar": "Kalendář",
+    "dashboard": "Přehled",
+    "profile": "Profil",
+    "admin": "Správa",
+    "reports": "Výkazy",
+    "logout": "Odhlásit"
+  },
+  "auth": {
+    "login": "Přihlásit se",
+    "logout": "Odhlásit se",
+    "username": "Přezdívka",
+    "password": "Heslo",
+    "forgotPassword": "Zapomenuté heslo?",
+    "resetPassword": "Resetovat heslo",
+    "newPassword": "Nové heslo",
+    "currentPassword": "Aktuální heslo",
+    "changePassword": "Změnit heslo",
+    "loginError": "Špatné přihlašovací údaje",
+    "passwordTooShort": "Heslo musí mít alespoň 8 znaků",
+    "resetSent": "Pokud tento email existuje, přišel vám odkaz pro reset hesla.",
+    "resetSuccess": "Heslo bylo úspěšně změněno"
+  },
+  "calendar": {
+    "month": "Měsíc",
+    "week": "Týden",
+    "agenda": "Agenda",
+    "today": "Dnes",
+    "noEvents": "Žádné události",
+    "allDay": "Celý den",
+    "addEvent": "Přidat událost",
+    "editEvent": "Upravit událost",
+    "deleteEvent": "Smazat událost",
+    "cancelEvent": "Zrušit událost",
+    "proposeEvent": "Navrhnout akci",
+    "holiday": "Státní svátek"
+  },
+  "event": {
+    "title": "Název",
+    "description": "Popis",
+    "type": "Typ",
+    "start": "Začátek",
+    "end": "Konec",
+    "allDay": "Celý den",
+    "location": "Místo",
+    "participants": "Účastníci",
+    "attachments": "Přílohy",
+    "recurring": "Opakování",
+    "status": {
+      "PROPOSED": "Čeká na schválení",
+      "APPROVED": "Schváleno",
+      "CANCELLED": "Zrušeno"
+    },
+    "proposal": {
+      "pending": "Čeká na schválení rodiče",
+      "approved": "Schváleno! 🎉",
+      "rejected": "Zamítnuto"
+    },
+    "noTitle": "Bez názvu"
+  },
+  "eventTypes": {
+    "groups": {
+      "Lední hokej": "Lední hokej 🏒",
+      "Plavání": "Plavání 🏊",
+      "Škola": "Škola 🎒",
+      "Lekce": "Lekce 🎵",
+      "Rodina & cestování": "Rodina & cestování 🗺️",
+      "Tábory": "Tábory ⛺",
+      "Zdraví & administrativa": "Zdraví & administrativa 🩺",
+      "Ostatní": "Ostatní 📌"
+    }
+  },
+  "dashboard": {
+    "welcome": "Ahoj, {{name}}! 👋",
+    "todayIs": "Dnes je {{date}}",
+    "proposals": "Návrhy čekají na schválení",
+    "noProposals": "Žádné čekající návrhy",
+    "coverageWarnings": "Dny bez hlídání",
+    "noCoverageWarnings": "Vše pokryto ✓",
+    "upcomingEvents": "Nadcházející události",
+    "noUpcomingEvents": "Žádné nadcházející události",
+    "myBadges": "Moje odznaky",
+    "nearestBadge": "Blíže k odznaku: {{name}}",
+    "motd": "Zpráva dne"
+  },
+  "availability": {
+    "add": "Přidat dostupnost",
+    "edit": "Upravit dostupnost",
+    "delete": "Smazat",
+    "status": {
+      "AVAILABLE": "Dostupný/á",
+      "UNAVAILABLE": "Nedostupný/á",
+      "ON_CALL": "Na telefonu"
+    },
+    "location": "Kde jsem",
+    "note": "Poznámka",
+    "from": "Od",
+    "to": "Do"
+  },
+  "badges": {
+    "title": "Odznaky a výkony",
+    "earned": "Získané odznaky",
+    "locked": "Nezískal/a ještě",
+    "progress": "Postup",
+    "newBadge": "Nový odznak! 🎉",
+    "categories": {
+      "Přihlášení": "Přihlášení",
+      "Události": "Události",
+      "Návrhy": "Návrhy",
+      "Hokej": "Hokej",
+      "Plavání": "Plavání",
+      "Škola": "Škola",
+      "Rodina": "Rodina",
+      "Strážci": "Strážci",
+      "Profil": "Profil",
+      "Speciální": "Speciální"
+    }
+  },
+  "reports": {
+    "title": "Výkazy",
+    "activity": "Aktivita uživatelů",
+    "freeTime": "Volný čas",
+    "coverage": "Přehled pokrytí",
+    "occupancy": "Vytíženost",
+    "from": "Od",
+    "to": "Do",
+    "export": "Exportovat CSV",
+    "noData": "Žádná data pro zvolené období"
+  },
+  "admin": {
+    "users": "Uživatelé",
+    "createUser": "Přidat uživatele",
+    "editUser": "Upravit uživatele",
+    "deactivate": "Deaktivovat",
+    "activate": "Aktivovat",
+    "resetPassword": "Resetovat heslo",
+    "impersonate": "Zobrazit jako tento uživatel",
+    "stopImpersonation": "Ukončit zobrazení",
+    "eventTypes": "Typy událostí",
+    "flags": "Funkce (přepínače)",
+    "motd": "Zpráva dne",
+    "auditLog": "Záznam změn"
+  },
+  "profile": {
+    "title": "Profil",
+    "name": "Jméno",
+    "email": "E-mail",
+    "mobile": "Telefon",
+    "dateOfBirth": "Datum narození",
+    "language": "Jazyk",
+    "theme": "Téma",
+    "colorMode": "Režim",
+    "colorModes": {
+      "LIGHT": "Světlý",
+      "DARK": "Tmavý",
+      "SYSTEM": "Systémový"
+    },
+    "save": "Uložit",
+    "saved": "Uloženo ✓",
+    "photo": "Profilová fotka",
+    "uploadPhoto": "Nahrát fotku",
+    "icsLink": "ICS odkaz",
+    "regenerateIcs": "Obnovit odkaz"
+  },
+  "errors": {
+    "generic": "Něco se pokazilo. Zkuste to prosím znovu.",
+    "network": "Chyba připojení. Zkontrolujte internet.",
+    "notFound": "Nenalezeno",
+    "forbidden": "Nemáte oprávnění",
+    "sessionExpired": "Přihlášení vypršelo, prosím přihlaste se znovu."
+  },
+  "common": {
+    "save": "Uložit",
+    "cancel": "Zrušit",
+    "delete": "Smazat",
+    "edit": "Upravit",
+    "add": "Přidat",
+    "close": "Zavřít",
+    "confirm": "Potvrdit",
+    "loading": "Načítám...",
+    "yes": "Ano",
+    "no": "Ne",
+    "search": "Hledat",
+    "filter": "Filtrovat",
+    "all": "Vše",
+    "none": "Žádné",
+    "back": "Zpět",
+    "next": "Další",
+    "previous": "Předchozí",
+    "show": "Zobrazit",
+    "hide": "Skrýt"
+  },
+  "roles": {
+    "PARENT": "Rodič",
+    "GRANDPARENT": "Prarodič",
+    "RELATIVE": "Příbuzný",
+    "KID": "Dítě",
+    "GUEST": "Host"
+  },
+  "themes": {
+    "klasika": "Klasika",
+    "ocean": "Oceán",
+    "led": "Led",
+    "leto": "Léto",
+    "les": "Les"
+  }
+}

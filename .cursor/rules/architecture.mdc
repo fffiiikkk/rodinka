@@ -1,0 +1,66 @@
+---
+alwaysApply: true
+---
+
+# Architecture Rules
+
+## Layering
+
+```
+Route handler (thin: validate → call service → serialize response)
+  ↓
+Service (business logic, DB access via Prisma, event emission)
+  ↓
+Prisma Client (persistence)
+```
+
+- Route handlers do: Zod parse input, call service, return JSON.
+- Services do: business logic, DB operations, fire-and-forget badge/notification triggers.
+- No circular imports between services.
+
+## API contract
+
+- Shared Zod schemas in `packages/shared/src/schemas/`. Import from `@rodinkal/shared`.
+- Every route validates request body/query with `schema.parse()` or `schema.safeParse()`.
+- Every route returns JSON. Error responses: `{ error: string; code?: string }`.
+- Dates: UTC ISO strings on the wire. Never pass `Date` objects through JSON.
+- All list endpoints accept `?from=&to=` range params (calendar queries) or `?page=&pageSize=` (admin lists). No unbounded `findMany` with deep includes.
+
+## Background jobs
+
+- `packages/backend/src/jobs/scheduler.ts` owns all cron schedules.
+- Each job has an in-process mutex (single-flight guard): `const running = new Set<string>()`.
+- Jobs are fire-and-forget from request handlers: `void triggerBadgeEval(userId)`.
+- Jobs write to append-only logs with idempotency keys.
+
+## Uploads
+
+- Multer stores files to `UPLOAD_DIR` (disk, not memory).
+- Size cap: `UPLOAD_MAX_SIZE_MB` env var.
+- Mime whitelist: images (jpg, png, gif, webp) + documents (pdf, docx, xlsx).
+- Return JSON errors even from multer middleware (wrap with custom error handler).
+- Sharp generates thumbnails for images (max 400px wide).
+
+## Feature flags
+
+- Check `req.flags.featureName` in route handlers (populated by session middleware).
+- Check `useFlags().featureName` in React components.
+- Never access FeatureFlag table directly in a route handler; use the `flags` object on the request.
+
+## State machine: Event.status
+
+```
+PROPOSED → APPROVED  (parent action: approveEvent)
+PROPOSED → CANCELLED (parent action: rejectEvent)
+APPROVED → CANCELLED (anyone with edit permission)
+CANCELLED → (terminal, no further transitions)
+```
+
+All transitions check current status inside the DB transaction. Corrections append a new event, never rewrite.
+
+## Passwords and sessions
+
+- Passwords hashed with argon2 (never bcrypt, never plain).
+- Sessions stored in PostgreSQL via connect-pg-simple.
+- Session cookie: httpOnly, secure (in production), sameSite: lax.
+- PasswordResetToken: hashed with SHA-256, single-use (usedAt set on consumption), expires in 1 hour.

@@ -1,0 +1,212 @@
+{
+  "app": {
+    "name": "Rodinka",
+    "tagline": "Everything under control"
+  },
+  "nav": {
+    "calendar": "Calendar",
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "admin": "Admin",
+    "reports": "Reports",
+    "logout": "Log out"
+  },
+  "auth": {
+    "login": "Log in",
+    "logout": "Log out",
+    "username": "Username",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "resetPassword": "Reset password",
+    "newPassword": "New password",
+    "currentPassword": "Current password",
+    "changePassword": "Change password",
+    "loginError": "Invalid credentials",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "resetSent": "If that email exists, a reset link has been sent.",
+    "resetSuccess": "Password changed successfully"
+  },
+  "calendar": {
+    "month": "Month",
+    "week": "Week",
+    "agenda": "Agenda",
+    "today": "Today",
+    "noEvents": "No events",
+    "allDay": "All day",
+    "addEvent": "Add event",
+    "editEvent": "Edit event",
+    "deleteEvent": "Delete event",
+    "cancelEvent": "Cancel event",
+    "proposeEvent": "Propose event",
+    "holiday": "Public holiday"
+  },
+  "event": {
+    "title": "Title",
+    "description": "Description",
+    "type": "Type",
+    "start": "Start",
+    "end": "End",
+    "allDay": "All day",
+    "location": "Location",
+    "participants": "Participants",
+    "attachments": "Attachments",
+    "recurring": "Recurrence",
+    "status": {
+      "PROPOSED": "Awaiting approval",
+      "APPROVED": "Approved",
+      "CANCELLED": "Cancelled"
+    },
+    "proposal": {
+      "pending": "Waiting for parent approval",
+      "approved": "Approved! 🎉",
+      "rejected": "Rejected"
+    },
+    "noTitle": "No title"
+  },
+  "eventTypes": {
+    "groups": {
+      "Lední hokej": "Ice Hockey 🏒",
+      "Plavání": "Swimming 🏊",
+      "Škola": "School 🎒",
+      "Lekce": "Lessons 🎵",
+      "Rodina & cestování": "Family & Travel 🗺️",
+      "Tábory": "Camps ⛺",
+      "Zdraví & administrativa": "Health & Admin 🩺",
+      "Ostatní": "Other 📌"
+    }
+  },
+  "dashboard": {
+    "welcome": "Hello, {{name}}! 👋",
+    "todayIs": "Today is {{date}}",
+    "proposals": "Proposals awaiting approval",
+    "noProposals": "No pending proposals",
+    "coverageWarnings": "Uncovered days",
+    "noCoverageWarnings": "All covered ✓",
+    "upcomingEvents": "Upcoming events",
+    "noUpcomingEvents": "No upcoming events",
+    "myBadges": "My badges",
+    "nearestBadge": "Nearly there: {{name}}",
+    "motd": "Message of the day"
+  },
+  "availability": {
+    "add": "Add availability",
+    "edit": "Edit availability",
+    "delete": "Delete",
+    "status": {
+      "AVAILABLE": "Available",
+      "UNAVAILABLE": "Unavailable",
+      "ON_CALL": "On call"
+    },
+    "location": "Where I am",
+    "note": "Note",
+    "from": "From",
+    "to": "To"
+  },
+  "badges": {
+    "title": "Badges & achievements",
+    "earned": "Earned badges",
+    "locked": "Not yet earned",
+    "progress": "Progress",
+    "newBadge": "New badge! 🎉",
+    "categories": {
+      "Přihlášení": "Logins",
+      "Události": "Events",
+      "Návrhy": "Proposals",
+      "Hokej": "Hockey",
+      "Plavání": "Swimming",
+      "Škola": "School",
+      "Rodina": "Family",
+      "Strážci": "Guardians",
+      "Profil": "Profile",
+      "Speciální": "Special"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "activity": "User activity",
+    "freeTime": "Free time",
+    "coverage": "Coverage overview",
+    "occupancy": "Occupancy",
+    "from": "From",
+    "to": "To",
+    "export": "Export CSV",
+    "noData": "No data for the selected period"
+  },
+  "admin": {
+    "users": "Users",
+    "createUser": "Add user",
+    "editUser": "Edit user",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "resetPassword": "Reset password",
+    "impersonate": "View as this user",
+    "stopImpersonation": "Stop viewing as user",
+    "eventTypes": "Event types",
+    "flags": "Features (toggles)",
+    "motd": "Message of the day",
+    "auditLog": "Audit log"
+  },
+  "profile": {
+    "title": "Profile",
+    "name": "Name",
+    "email": "Email",
+    "mobile": "Mobile",
+    "dateOfBirth": "Date of birth",
+    "language": "Language",
+    "theme": "Theme",
+    "colorMode": "Mode",
+    "colorModes": {
+      "LIGHT": "Light",
+      "DARK": "Dark",
+      "SYSTEM": "System"
+    },
+    "save": "Save",
+    "saved": "Saved ✓",
+    "photo": "Profile photo",
+    "uploadPhoto": "Upload photo",
+    "icsLink": "ICS link",
+    "regenerateIcs": "Regenerate link"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Connection error. Check your internet.",
+    "notFound": "Not found",
+    "forbidden": "Access denied",
+    "sessionExpired": "Your session has expired, please log in again."
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "yes": "Yes",
+    "no": "No",
+    "search": "Search",
+    "filter": "Filter",
+    "all": "All",
+    "none": "None",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "show": "Show",
+    "hide": "Hide"
+  },
+  "roles": {
+    "PARENT": "Parent",
+    "GRANDPARENT": "Grandparent",
+    "RELATIVE": "Relative",
+    "KID": "Kid",
+    "GUEST": "Guest"
+  },
+  "themes": {
+    "klasika": "Classic",
+    "ocean": "Ocean",
+    "led": "Ice",
+    "leto": "Summer",
+    "les": "Forest"
+  }
+}

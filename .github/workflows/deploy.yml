@@ -1,0 +1,64 @@
+name: Deploy to Synology NAS
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Get run info
+        id: run-info
+        run: echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Trigger deploy webhook on NAS
+        id: webhook
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_WEBHOOK_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"image_tag": "${{ github.run_number }}+${{ steps.run-info.outputs.sha }}"}' \
+            "${{ secrets.DEPLOY_WEBHOOK_URL }}")
+          BODY=$(echo "$RESPONSE" | head -n1)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          echo "status_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Deploy webhook failed with status $HTTP_CODE: $BODY"
+            exit 1
+          fi
+          echo "Webhook response: $BODY"
+
+      - name: Wait for health check
+        run: |
+          echo "Waiting 60s for deploy to complete..."
+          sleep 60
+          
+          EXPECTED_SHA="${{ steps.run-info.outputs.sha }}"
+          HEALTH_URL="${{ secrets.APP_URL }}/health"
+          MAX_ATTEMPTS=10
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            RESPONSE=$(curl -s --max-time 10 "$HEALTH_URL" || echo '{}')
+            VERSION=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('version',''))" 2>/dev/null || echo "")
+            
+            echo "Attempt $ATTEMPT: version='$VERSION'"
+            
+            if echo "$VERSION" | grep -q "$EXPECTED_SHA"; then
+              echo "✅ Deploy verified! Version $VERSION contains SHA $EXPECTED_SHA"
+              exit 0
+            fi
+            
+            sleep 15
+          done
+          
+          echo "❌ Deploy verification failed — expected SHA '$EXPECTED_SHA' not found in health response"
+          exit 1

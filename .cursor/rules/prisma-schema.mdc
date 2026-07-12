@@ -1,0 +1,32 @@
+---
+alwaysApply: true
+---
+
+# Prisma Schema Rules
+
+Every database schema change must:
+
+1. Update `packages/backend/prisma/schema.prisma`
+2. Create a new migration: `cd packages/backend; npx prisma migrate dev --name describe_the_change`
+3. Regenerate the Prisma client: `cd packages/backend; npx prisma generate`
+4. Update all code that reads/writes the changed fields
+5. Update the corresponding Zod schema in `packages/shared/src/schemas/`
+6. Run `npm run verify` to confirm nothing broke
+
+## Safety rules
+
+- Never edit migration files after they have been committed.
+- Never use `prisma migrate reset` in production — it drops all data.
+- Never use `prisma db push` in production — always use `migrate deploy`.
+- Append-only tables (ActivityEvent, NotificationLog, AuditLog, UserBadge) must never have DELETE operations in services.
+- All money/credit-style ledger patterns: idempotency key required, no UPDATE to existing rows.
+
+## Local dev reset (when things break)
+
+```powershell
+cd packages/backend
+npx prisma migrate reset   # drops + recreates DB and re-runs all migrations (dev only!)
+npx prisma generate
+cd ../..
+npm run db:seed
+```

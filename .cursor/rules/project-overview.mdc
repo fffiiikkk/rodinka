@@ -1,0 +1,34 @@
+---
+alwaysApply: true
+---
+
+# Project Overview — Rodinný kalendář
+
+Family calendar application for Czech families. Mobile-first PWA.
+
+## Package responsibilities
+
+- `packages/shared` — Zod schemas (the wire contract), TypeScript enums, icon/label maps, badge catalog keys. Updated FIRST when adding any new API field.
+- `packages/backend` — Express REST API, Prisma/PostgreSQL, background jobs (cron), file uploads (multer/sharp), email (Resend), web push, sessions (connect-pg-simple).
+- `packages/frontend` — React 18 + Vite + Tailwind, react-i18next (CS default), react-query, framer-motion. Mobile-first; swipe navigation; PWA manifest.
+
+## Roles
+
+PARENT > GRANDPARENT / RELATIVE > KID > GUEST. Parents are admins. Kids (9 + 11 yo) have a simplified UI and their created events start as PROPOSED.
+
+## Core engineering principles
+
+- Shared-first: `packages/shared` schemas drive backend validation and frontend parsing.
+- Append-only logs: ActivityEvent, NotificationLog, AuditLog, UserBadge are never mutated.
+- State machines: Event.status transitions are explicit and DB-transactional.
+- Performance by default: all list endpoints paginated + server-filtered; no unbounded queries.
+- Optimistic UI for cheap mutations; toast confirmations in Czech.
+- Czech primary language; English secondary. All strings centralized, never per-call-site.
+
+## Common edit expectations
+
+- Read target files before editing.
+- Preserve existing patterns; don't introduce new libraries without clear need.
+- After schema changes: update migration, regenerate Prisma client, update affected services and routes.
+- After adding a badge: only edit seed file — no code changes to the engine needed.
+- Run `npm run verify` (lint + typecheck + unit tests) to confirm changes.

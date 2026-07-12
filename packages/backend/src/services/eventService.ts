@@ -1,0 +1,243 @@
+import { prisma } from '../db.js';
+import { createError } from '../middleware/errorHandler.js';
+import type { CreateEventInput, UpdateEventInput } from '@rodinkal/shared';
+import { activityService } from './activityService.js';
+import { recurrenceService } from './recurrenceService.js';
+import { config } from '../config.js';
+import { fileUrl } from '../lib/s3.js';
+
+function attachmentUrl(id: string): string {
+  return `${config.appUrl}/api/attachments/${id}/file`;
+}
+function thumbnailUrl(id: string): string {
+  return `${config.appUrl}/api/attachments/${id}/thumbnail`;
+}
+
+function serializeTransport(event: any) {
+  const hasTransport = event.transportUserId || event.transportExternalName || event.transportNote;
+  if (!hasTransport) return null;
+  return {
+    userId: event.transportUserId ?? null,
+    userName: event.transportUser?.name ?? null,
+    userRole: event.transportUser?.role ?? null,
+    externalName: event.transportExternalName ?? null,
+    note: event.transportNote ?? null,
+  };
+}
+
+function serializeEvent(event: any): any {
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    eventTypeId: event.eventTypeId,
+    eventType: event.eventType ?? null,
+    start: event.start.toISOString(),
+    end: event.end.toISOString(),
+    allDay: event.allDay,
+    location: event.location,
+    colorOverride: event.colorOverride,
+    createdById: event.createdById,
+    recurrenceRule: event.recurrenceRule,
+    parentEventId: event.parentEventId,
+    status: event.status,
+    isHoliday: event.isHoliday,
+    transport: serializeTransport(event),
+    participants: (event.participants ?? []).map((p: any) => ({
+      userId: p.userId,
+      name: p.user?.name ?? '',
+      photoUrl: p.user?.photoPath ? fileUrl(p.user.photoPath) : null,
+      role: p.user?.role ?? '',
+    })),
+    attachments: (event.attachments ?? []).map((a: any) => ({
+      id: a.id,
+      fileName: a.fileName,
+      mimeType: a.mimeType,
+      size: a.size,
+      thumbnailUrl: a.thumbnailPath ? thumbnailUrl(a.id) : null,
+      downloadUrl: attachmentUrl(a.id),
+      createdAt: a.createdAt.toISOString(),
+    })),
+    createdAt: event.createdAt.toISOString(),
+    updatedAt: event.updatedAt.toISOString(),
+  };
+}
+
+const EVENT_INCLUDE = {
+  eventType: true,
+  transportUser: { select: { name: true, role: true } },
+  participants: { include: { user: { select: { name: true, photoPath: true, role: true } } } },
+  attachments: true,
+};
+
+export const eventService = {
+  async query(params: {
+    from: Date; to: Date; userId?: string; eventTypeId?: string;
+    status?: string; includeHolidays?: boolean; expandRecurring?: boolean;
+  }) {
+    const where: any = {
+      OR: [
+        // Events starting/ending within range
+        { start: { gte: params.from, lte: params.to } },
+        // Events spanning the range
+        { AND: [{ start: { lte: params.from } }, { end: { gte: params.to } }] },
+      ],
+      parentEventId: null, // fetch parents only; exceptions fetched separately
+    };
+
+    if (!params.includeHolidays) where.isHoliday = false;
+    if (params.status) where.status = params.status;
+    if (params.eventTypeId) where.eventTypeId = params.eventTypeId;
+    if (params.userId) {
+      where.OR = [
+        { createdById: params.userId },
+        { participants: { some: { userId: params.userId } } },
+      ];
+    }
+
+    const events = await prisma.event.findMany({ where, include: EVENT_INCLUDE, orderBy: { start: 'asc' } });
+
+    if (!params.expandRecurring) return events.map(serializeEvent);
+
+    // Expand recurring events
+    const expanded: any[] = [];
+    for (const e of events) {
+      if (e.recurrenceRule) {
+        const occurrences = recurrenceService.expand(e, params.from, params.to);
+        expanded.push(...occurrences);
+      } else {
+        expanded.push(serializeEvent(e));
+      }
+    }
+
+    return expanded.sort((a, b) => a.start.localeCompare(b.start));
+  },
+
+  async findById(id: string) {
+    const event = await prisma.event.findUnique({ where: { id }, include: EVENT_INCLUDE });
+    if (!event) throw createError(404, 'Event not found', 'NOT_FOUND');
+    return serializeEvent(event);
+  },
+
+  async create(data: CreateEventInput, userId: string, userRole: string) {
+    const status = userRole === 'KID' ? 'PROPOSED' : 'APPROVED';
+
+    const event = await prisma.event.create({
+      data: {
+        title: data.title,
+        description: data.description,
+        eventTypeId: data.eventTypeId,
+        start: new Date(data.start),
+        end: new Date(data.end),
+        allDay: data.allDay ?? false,
+        location: data.location,
+        colorOverride: data.colorOverride,
+        recurrenceRule: data.recurrenceRule,
+        parentEventId: data.parentEventId,
+        createdById: userId,
+        status,
+        transportUserId: data.transportUserId ?? null,
+        transportExternalName: data.transportExternalName ?? null,
+        transportNote: data.transportNote ?? null,
+        participants: data.participantIds?.length
+          ? { create: data.participantIds.map((uid) => ({ userId: uid })) }
+          : undefined,
+      },
+      include: EVENT_INCLUDE,
+    });
+
+    const actType = userRole === 'KID' ? 'PROPOSAL_SUBMITTED' : 'EVENT_CREATED';
+    await activityService.log(userId, actType, { eventId: event.id, eventTypeId: data.eventTypeId });
+
+    return serializeEvent(event);
+  },
+
+  async update(id: string, data: UpdateEventInput, userId: string) {
+    const existing = await prisma.event.findUnique({ where: { id } });
+    if (!existing) throw createError(404, 'Event not found', 'NOT_FOUND');
+    if (existing.status === 'CANCELLED') throw createError(400, 'Cannot edit a cancelled event', 'INVALID_STATE');
+
+    const event = await prisma.event.update({
+      where: { id },
+      data: {
+        title: data.title,
+        description: data.description,
+        eventTypeId: data.eventTypeId,
+        start: data.start ? new Date(data.start) : undefined,
+        end: data.end ? new Date(data.end) : undefined,
+        allDay: data.allDay,
+        location: data.location,
+        colorOverride: data.colorOverride,
+        recurrenceRule: data.recurrenceRule,
+        ...(data.transportUserId !== undefined && { transportUserId: data.transportUserId ?? null }),
+        ...(data.transportExternalName !== undefined && { transportExternalName: data.transportExternalName ?? null }),
+        ...(data.transportNote !== undefined && { transportNote: data.transportNote ?? null }),
+        ...(data.participantIds !== undefined && {
+          participants: {
+            deleteMany: {},
+            create: data.participantIds.map((uid) => ({ userId: uid })),
+          },
+        }),
+      },
+      include: EVENT_INCLUDE,
+    });
+
+    await activityService.log(userId, 'EVENT_EDITED', { eventId: id });
+    return serializeEvent(event);
+  },
+
+  async approve(id: string, adminId: string) {
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) throw createError(404, 'Event not found', 'NOT_FOUND');
+    if (event.status !== 'PROPOSED') throw createError(400, 'Event is not in PROPOSED state', 'INVALID_STATE');
+
+    const updated = await prisma.event.update({
+      where: { id },
+      data: { status: 'APPROVED' },
+      include: EVENT_INCLUDE,
+    });
+
+    await activityService.log(event.createdById, 'PROPOSAL_APPROVED', { eventId: id, approvedBy: adminId });
+    await activityService.log(adminId, 'PROPOSAL_APPROVED', { eventId: id });
+    return serializeEvent(updated);
+  },
+
+  async reject(id: string, adminId: string) {
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) throw createError(404, 'Event not found', 'NOT_FOUND');
+    if (event.status !== 'PROPOSED') throw createError(400, 'Event is not in PROPOSED state', 'INVALID_STATE');
+
+    const updated = await prisma.event.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+      include: EVENT_INCLUDE,
+    });
+
+    await activityService.log(event.createdById, 'PROPOSAL_REJECTED', { eventId: id });
+    return serializeEvent(updated);
+  },
+
+  async cancel(id: string, userId: string) {
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) throw createError(404, 'Event not found', 'NOT_FOUND');
+    if (event.status === 'CANCELLED') return serializeEvent(event);
+
+    const updated = await prisma.event.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+      include: EVENT_INCLUDE,
+    });
+
+    await activityService.log(userId, 'EVENT_DELETED', { eventId: id });
+    return serializeEvent(updated);
+  },
+
+  async getProposals() {
+    const events = await prisma.event.findMany({
+      where: { status: 'PROPOSED' },
+      include: EVENT_INCLUDE,
+      orderBy: { createdAt: 'asc' },
+    });
+    return events.map(serializeEvent);
+  },
+};

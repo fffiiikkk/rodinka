@@ -1,0 +1,14 @@
+---
+alwaysApply: true
+---
+
+# Git Conventions
+
+- Main branch: `main`. Feature branches: `feat/<short-description>`. Fix branches: `fix/<short-description>`.
+- One PR = one branch cut from current `main`. A merged branch is DEAD — never push to it again. Cut a new branch from `main` for follow-ups.
+- Conventional commits: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`, `ci:`.
+- Never force-push shared branches (`main`).
+- Never commit: `.env`, credentials, `packages/backend/uploads/`, `packages/*/dist/`, `*.tsbuildinfo`, `coverage/`.
+- Do not amend commits unless the user explicitly asks AND the commit has not been pushed.
+- Verify "what is deployed" by commit SHA (`git cherry`, workflow run SHA) — never from memory.
+- PowerShell on this machine: use `;` to chain commands, not `&&`.

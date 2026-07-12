@@ -1,0 +1,41 @@
+---
+alwaysApply: true
+---
+
+# Testing Rules
+
+## What to run
+
+```powershell
+npm run verify            # before every push: lint + typecheck + unit tests
+npm run test:unit         # unit tests only (fast, no DB)
+npm run test:integration  # integration tests (needs Postgres in Docker)
+npx playwright test       # E2E smoke tests
+```
+
+## Test types and locations
+
+- **Unit (Vitest)**: `packages/backend/src/services/__tests__/` and `packages/frontend/src/**/__tests__/`. No DB, no HTTP.
+- **Integration (Vitest + supertest)**: `packages/backend/src/__tests__/`. Use a real Postgres instance. Each test file creates its own uniquely-named data and cleans up after itself (time-scoped or unique IDs — never rely on shared seed data for assertions).
+- **E2E (Playwright)**: `e2e/`. Runs against the built app. Upload traces and test-results as artifacts on CI failure.
+
+## What to cover
+
+- All service functions (recurrence expansion, gap computation, badge evaluator, coverage detection, notification idempotency).
+- Auth flows: login, logout, password reset, role enforcement.
+- Event CRUD + state machine transitions.
+- Badge catalog: assert >= 100 active definitions, unique keys, valid icons.
+- i18n completeness: all cs keys exist in en and vice versa.
+- Report aggregations.
+
+## When to add tests
+
+- Bug fix → add a regression test covering the exact case.
+- New service function → add unit test.
+- New route → add integration test covering happy path + main error cases.
+- Do not leave `TODO: add test` comments; add the test or create a task.
+
+## Coverage
+
+- Backend services: minimum 80% line coverage enforced in CI.
+- Frontend: ui component snapshot tests are optional; hook/logic tests required.

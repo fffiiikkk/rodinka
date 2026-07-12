@@ -1,0 +1,81 @@
+---
+alwaysApply: true
+---
+
+# Architecture Guardrails
+
+Distilled from real incidents in this project. Full rationale with incident history:
+`docs/architecture-lessons.md`.
+
+## Money and wallet integrity
+
+- All coin movements go through the wallet service as append-only ledger entries.
+  Never mutate, delete, or reinterpret an existing `WalletTransaction`; corrections are
+  new explicitly-marked entries.
+- Every ledger write carries an idempotency key unique to (user, wager, stake cycle,
+  operation) and immutable snapshot fields (pick, stake, odds, potential return).
+- Reports and timelines read snapshot fields on the transaction, never joined mutable
+  `Bet`/`SideBet` rows.
+- Settlement credits must verify wager status inside the same transaction that writes
+  the credit; never pay a CANCELLED/REFUNDED wager.
+- Never rewrite `settledAt` or other historical timestamps during re-settlement.
+
+## Lifecycle and concurrency
+
+- Bets, side markets, and matches follow explicit state machines; guard every
+  transition by current status. Settlement-like operations must be idempotent
+  (running twice is a no-op).
+- Operations that must not run concurrently (settlement, resettlement, stats refresh,
+  imports) require a single-flight guard (in-process mutex or queue).
+- Never nest a Prisma transaction inside another long transaction. Set explicit
+  `timeout`/`maxWait` on multi-step transactions.
+- Request handlers (especially live/polling endpoints) never await heavy background
+  work; trigger it fire-and-forget or via queue, sequential not per-row concurrent.
+- Incident-derived side markets (first team to score, first-half result) never
+  auto-settle; they require explicit admin confirmation.
+
+## API boundary and serialization
+
+- Prisma `Decimal` serializes to JSON strings: convert to number at the API boundary
+  or tolerate `number | string` in frontend types. Never call `.toFixed()`/arithmetic
+  on raw API values without `Number()` conversion.
+- Shared request/response contracts live in `packages/shared` zod schemas; parse
+  critical payloads on the frontend instead of blind type assertions.
+- Error responses are always JSON with a stable shape; map Prisma P2024/P2028 to 503,
+  not generic 500.
+
+## Performance defaults
+
+- Every new list endpoint supports pagination and server-side filtering from its first
+  version. No unbounded `findMany` with deep includes.
+- Pages render primary content first; secondary data (rankings, analytics, badges)
+  loads asynchronously with loading states.
+- Batch DB lookups (one `findMany` + in-memory map) instead of per-row queries in
+  loops.
+- Prefer optimistic UI for cheap, reconcilable user mutations.
+
+## Operability
+
+- Every money-moving feature ships with its integrity report/invariant check and,
+  where feasible, a repair action in the same PR.
+- Report summaries must visibly decompose into the displayed rows (include cancelled/
+  refunded counts, not just won/lost).
+- Centralize display label maps (e.g. market/pick labels); no per-call-site label
+  strings.
+
+## External data
+
+- Every external feed (API-Football, CSV imports) passes through a tested
+  normalization/classification layer before it can affect money logic. Cover edge
+  cases: missed vs scored penalties, disallowed goals, diacritics, `,` vs `.` decimals.
+- Always provide fallbacks for missing external assets (avatars, flags).
+
+## Git, deploy, and tests
+
+- One PR = one branch cut from current `main`. After merge the branch is dead; never
+  push follow-up fixes to a merged branch — cut a new branch from `main`.
+- Verify deployment state by commit SHA (`git cherry`, workflow run SHA), not memory.
+- Integration tests scope assertions to data created by the test (time-scoped or
+  unique fixtures) so reruns and shared DBs cannot pollute results.
+- Shell commands must be PowerShell-compatible on this machine: no `&&` chaining, no
+  bash heredocs; use `;` separators and PowerShell here-strings.
