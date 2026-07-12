@@ -7,7 +7,8 @@
     "moduleResolution": "Node",
     "lib": ["ES2022"],
     "types": ["node"],
-    "noImplicitAny": false
+    "strict": false,
+    "noUncheckedIndexedAccess": false
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "prisma", "src/**/__tests__/**", "src/**/*.test.ts", "src/**/*.spec.ts"]
