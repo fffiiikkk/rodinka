@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { prisma } from '../db.js';
 import type { ActivityEventType } from '@rodinkal/shared';
 
@@ -8,7 +7,8 @@ export const activityService = {
       data: {
         userId,
         type,
-        meta: meta ? (meta as Prisma.InputJsonValue) : undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        meta: meta ? (meta as any) : undefined,
       },
     });
   },
