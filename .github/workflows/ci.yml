@@ -213,8 +213,11 @@ jobs:
         run: |
           npm run build --workspace=packages/shared
           cd packages/backend && npx prisma generate && cd ../..
-          npm run build --workspace=packages/backend
           npm run build --workspace=packages/frontend
+          # Copy frontend dist to backend static folder (where Express serves it)
+          mkdir -p packages/backend/dist/public
+          cp -r packages/frontend/dist/. packages/backend/dist/public/
+          npm run build --workspace=packages/backend
           cd packages/backend
           npx prisma migrate deploy
           npx tsx prisma/seed/index.ts
