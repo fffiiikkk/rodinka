@@ -249,7 +249,8 @@ function WeekTimeGrid({ events, weekStart, availability }: { events: Event[]; we
           <TgTimeGutter />
           {days.map((day, idx) => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            const dayEvents = (events as any[]).filter((e) => !e.allDay && String(e.start).slice(0, 10) === dayStr);
+            // Exclude allDay and multi-day events (those go to the all-day section above)
+            const dayEvents = (events as any[]).filter((e) => !isMultiDayEvent(e) && String(e.start).slice(0, 10) === dayStr);
             const tod = isToday(day);
             return (
               <div key={idx} className={`flex-1 relative border-l border-border/40 ${tod ? 'bg-primary/[0.03]' : ''}`}
@@ -292,9 +293,9 @@ function ViewTabs({ view, setView }: { view: CalendarView; setView: (v: Calendar
   );
 }
 
-// Returns true if this event spans more than one calendar day (allDay only)
+// Returns true if this event spans more than one calendar day
+// (works for both allDay and timed multi-day events like a roadtrip or business trip)
 function isMultiDayEvent(e: Event): boolean {
-  if (!e.allDay) return false;
   return e.end.slice(0, 10) > e.start.slice(0, 10);
 }
 
