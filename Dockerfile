@@ -24,16 +24,13 @@ RUN npm run build --workspace=packages/shared
 # In npm workspaces, Prisma client is hoisted to /workspace/node_modules/.prisma
 RUN cd packages/backend && npx prisma generate
 
-# Build frontend → outputs to packages/frontend/dist
+# Build frontend → Vite outDir is '../backend/dist/public' (relative to frontend package)
+# so output goes directly to packages/backend/dist/public
 ARG APP_VERSION=local
 ENV APP_VERSION=$APP_VERSION
 RUN npm run build --workspace=packages/frontend
 
-# Copy frontend dist into backend's static folder
-RUN mkdir -p packages/backend/dist/public && \
-    cp -r packages/frontend/dist/. packages/backend/dist/public/
-
-# Build backend
+# Build backend (TypeScript → dist/, frontend is already in dist/public/)
 RUN npm run build --workspace=packages/backend
 
 # ── Production stage ────────────────────────────────────
