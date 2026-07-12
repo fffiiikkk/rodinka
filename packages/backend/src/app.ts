@@ -111,7 +111,8 @@ export function createApp() {
   app.use('/api/ics', icsRouter);
 
   // Serve frontend build when public dir exists (production & E2E; not local dev)
-  const frontendDist = path.resolve(__dirname, '..', 'public');
+  // __dirname = packages/backend/dist at runtime; Vite outputs to packages/backend/dist/public
+  const frontendDist = path.resolve(__dirname, 'public');
   if (existsSync(frontendDist)) {
     app.use(express.static(frontendDist));
     app.get('*', (_req, res) => {
