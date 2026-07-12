@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Calendar, CalendarRange, User, Settings, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, Calendar, CalendarRange, User, Settings, BarChart2, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
 export default function BottomNav() {
@@ -13,10 +13,11 @@ export default function BottomNav() {
   const isAdmin = user?.role === 'PARENT';
 
   const links = [
-    { to: '/',        icon: LayoutDashboard, label: t('nav.dashboard') },
+    { to: '/',         icon: LayoutDashboard, label: t('nav.dashboard') },
     { to: '/calendar', icon: Calendar,        label: t('nav.calendar') },
-    { to: '/week',    icon: CalendarRange,    label: 'Týden' },
-    { to: '/profile', icon: User,             label: t('nav.profile') },
+    { to: '/schedule', icon: GraduationCap,   label: t('nav.schedule') },
+    { to: '/week',     icon: CalendarRange,   label: t('nav.week') },
+    { to: '/profile',  icon: User,            label: t('nav.profile') },
     ...(isAdmin
       ? [
           { to: '/reports', icon: BarChart2, label: t('nav.reports') },

@@ -104,13 +104,16 @@ function transportLabel(t: Event['transport']): string | null {
   return null;
 }
 
-function EventChip({ event }: { event: Event }) {
+function EventChip({ event }: { event: Event & { originalId?: string; isOccurrence?: boolean } }) {
   const color = event.eventType?.color ?? event.colorOverride ?? '#a3a3a3';
   const startTime = event.allDay ? '' : new Date(event.start).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
   const transport = transportLabel(event.transport);
+  // Recurring occurrences have a composite ID — navigate to the original series
+  const navId = event.originalId ?? event.id;
+  const isRecurring = !!(event.recurrenceRule || event.isOccurrence);
 
   return (
-    <a href={`/event/${event.id}`} className="flex items-center gap-2 bg-surface-raised rounded-lg p-2.5 border border-border hover:shadow-card transition-shadow">
+    <a href={`/event/${navId}`} className="flex items-center gap-2 bg-surface-raised rounded-lg p-2.5 border border-border hover:shadow-card transition-shadow">
       <div className="w-1.5 h-full rounded-full shrink-0 self-stretch" style={{ background: color }} />
       <span className="text-lg">{event.eventType?.icon ?? '📌'}</span>
       <div className="flex-1 min-w-0">
@@ -118,6 +121,7 @@ function EventChip({ event }: { event: Event }) {
         <div className="flex items-center gap-2 text-xs text-ink-muted flex-wrap">
           {startTime && <span>{startTime}</span>}
           {event.location && <span>📍 {event.location}</span>}
+          {isRecurring && <span className="text-primary/70">🔄</span>}
           {transport && (
             <span className="text-xs font-medium text-primary/80 bg-primary/8 px-1.5 py-0.5 rounded-full">{transport}</span>
           )}

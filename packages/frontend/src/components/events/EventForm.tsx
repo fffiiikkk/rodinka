@@ -10,6 +10,7 @@ import type { EventType } from '@rodinkal/shared';
 import { useToast } from '../ui/Toast.js';
 import TimePicker from '../ui/TimePicker.js';
 import DatePicker from '../ui/DatePicker.js';
+import RecurrenceEditor from './RecurrenceEditor.js';
 
 type TransportMode = 'none' | 'user' | 'external' | 'self';
 
@@ -55,6 +56,9 @@ export default function EventForm({ onClose, defaultDate = new Date() }: Props) 
   const [allDay, setAllDay] = useState(false);
   const [participantIds, setParticipantIds] = useState<string[]>(user ? [user.id] : []);
   const [submitting, setSubmitting] = useState(false);
+
+  // Recurrence
+  const [recurrenceRule, setRecurrenceRule] = useState<string | null>(null);
 
   // Transport
   const [transportMode, setTransportMode] = useState<TransportMode>('none');
@@ -106,6 +110,7 @@ export default function EventForm({ onClose, defaultDate = new Date() }: Props) 
         end: allDay ? new Date(endDate).toISOString() : new Date(endISO).toISOString(),
         allDay,
         location: location || undefined,
+        recurrenceRule: recurrenceRule || undefined,
         participantIds,
         transportUserId: transportMode === 'user' ? (transportUserId || undefined) :
                          transportMode === 'self' ? (participantIds[0] || undefined) : undefined,
@@ -222,6 +227,15 @@ export default function EventForm({ onClose, defaultDate = new Date() }: Props) 
           )}
         </div>
       </div>
+
+      {/* Recurrence — hide for all-day kid proposals */}
+      {!isKid && (
+        <RecurrenceEditor
+          value={recurrenceRule}
+          onChange={setRecurrenceRule}
+          startDate={startDate}
+        />
+      )}
 
       <div>
         <label className="label">{t('event.location')}</label>

@@ -9,7 +9,9 @@
     "profile": "Profile",
     "admin": "Admin",
     "reports": "Reports",
-    "logout": "Log out"
+    "logout": "Log out",
+    "schedule": "Schedule",
+    "week": "Week"
   },
   "auth": {
     "login": "Log in",
@@ -68,6 +70,7 @@
       "Lední hokej": "Ice Hockey 🏒",
       "Plavání": "Swimming 🏊",
       "Škola": "School 🎒",
+      "Předměty": "Subjects 📚",
       "Lekce": "Lessons 🎵",
       "Rodina & cestování": "Family & Travel 🗺️",
       "Tábory": "Camps ⛺",

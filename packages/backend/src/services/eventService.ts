@@ -81,6 +81,8 @@ export const eventService = {
         { start: { gte: params.from, lte: params.to } },
         // Events spanning the range
         { AND: [{ start: { lte: params.from } }, { end: { gte: params.to } }] },
+        // Recurring series that started before the range — occurrences may fall within
+        { AND: [{ recurrenceRule: { not: null } }, { start: { lte: params.to } }] },
       ],
       parentEventId: null, // fetch parents only; exceptions fetched separately
     };
