@@ -1,64 +1,150 @@
-name: Deploy to Synology NAS
+name: Deploy → Synology
+
+# Runs automatically after CI succeeds on main.
+# Manual trigger always proceeds (skips CI gate).
+#
+# Required GitHub Secrets (Settings → Secrets → Actions):
+#   CF_ACCESS_CLIENT_ID      — Cloudflare Access Service Token ID
+#   CF_ACCESS_CLIENT_SECRET  — Cloudflare Access Service Token Secret
+#   SYNOLOGY_SSH_KEY         — SSH private key for Synology access
+#   SYNOLOGY_SSH_USER        — SSH user (krataf)
 
 on:
   workflow_run:
     workflows: ['CI']
     types: [completed]
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-synology
+  cancel-in-progress: false
+
+env:
+  REGISTRY:   ghcr.io
+  IMAGE:      ghcr.io/${{ github.repository_owner }}/rodinkal
+  SSH_HOST:   ssh.krataf.dev
+  DEPLOY_DIR: /volume1/docker/rodinka
 
 jobs:
   deploy:
-    name: Deploy
+    name: Deploy to Synology (Cloudflare SSH)
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      - name: Get run info
-        id: run-info
-        run: echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Trigger deploy webhook on NAS
-        id: webhook
+      # ── Build & push image ─────────────────────────────────────────────────
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Get short SHA
+        id: sha
         run: |
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
-            -X POST \
-            -H "Authorization: Bearer ${{ secrets.DEPLOY_WEBHOOK_SECRET }}" \
-            -H "Content-Type: application/json" \
-            -d '{"image_tag": "${{ github.run_number }}+${{ steps.run-info.outputs.sha }}"}' \
-            "${{ secrets.DEPLOY_WEBHOOK_URL }}")
-          BODY=$(echo "$RESPONSE" | head -n1)
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          echo "status_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Deploy webhook failed with status $HTTP_CODE: $BODY"
+          SHA=${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          echo "short=$(echo $SHA | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.sha.outputs.short }}
+          build-args: |
+            APP_VERSION=1.0.${{ github.run_number }}+${{ steps.sha.outputs.short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── SSH setup via Cloudflare Tunnel ────────────────────────────────────
+      - name: Install cloudflared
+        run: |
+          curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
+            | sudo gpg --dearmor -o /usr/share/keyrings/cloudflare-main.gpg
+          echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] \
+            https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" \
+            | sudo tee /etc/apt/sources.list.d/cloudflared.list
+          sudo apt-get update -q && sudo apt-get install -y cloudflared
+
+      - name: Configure SSH via Cloudflare Access
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "${{ secrets.SYNOLOGY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >> ~/.ssh/config << EOF
+          Host ${{ env.SSH_HOST }}
+            User ${{ secrets.SYNOLOGY_SSH_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            ProxyCommand cloudflared access ssh \
+              --hostname %h \
+              --service-token-id ${{ secrets.CF_ACCESS_CLIENT_ID }} \
+              --service-token-secret ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          EOF
+
+      # ── Upload compose file ────────────────────────────────────────────────
+      - name: Upload docker-compose.prod.yml
+        run: |
+          ssh ${{ env.SSH_HOST }} "mkdir -p ${{ env.DEPLOY_DIR }}"
+          cat docker-compose.prod.yml | \
+            ssh ${{ env.SSH_HOST }} "cat > ${{ env.DEPLOY_DIR }}/docker-compose.prod.yml"
+
+      # ── Pull, migrate, restart ─────────────────────────────────────────────
+      - name: Deploy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          IMG: ${{ env.IMAGE }}
+        run: |
+          ssh ${{ env.SSH_HOST }} << SSHEOF
+          set -e
+          cd ${{ env.DEPLOY_DIR }}
+
+          # Sanity check — .env.prod must exist
+          if [ ! -f .env.prod ]; then
+            echo "ERROR: .env.prod not found on NAS. Run initial setup first." >&2
             exit 1
           fi
-          echo "Webhook response: $BODY"
 
-      - name: Wait for health check
+          echo "${GH_TOKEN}" | docker login ghcr.io -u ${GH_ACTOR} --password-stdin
+
+          docker pull ${IMG}:latest
+
+          # Start DB first (idempotent)
+          docker compose -f docker-compose.prod.yml --env-file .env.prod up -d postgres
+          sleep 8
+
+          # Run migrations
+          docker run --rm \
+            --env-file .env.prod \
+            -e DATABASE_URL=\$(grep ^DATABASE_URL .env.prod | cut -d= -f2-) \
+            --network rodinka_net \
+            ${IMG}:latest \
+            sh -c "cd packages/backend && npx prisma migrate deploy"
+
+          # Restart app
+          docker compose -f docker-compose.prod.yml --env-file .env.prod \
+            up -d --no-deps --force-recreate app
+
+          docker image prune -f
+          SSHEOF
+
+      # ── Health check ───────────────────────────────────────────────────────
+      - name: Health check
         run: |
-          echo "Waiting 60s for deploy to complete..."
-          sleep 60
-          
-          EXPECTED_SHA="${{ steps.run-info.outputs.sha }}"
-          HEALTH_URL="${{ secrets.APP_URL }}/health"
-          MAX_ATTEMPTS=10
-          ATTEMPT=0
-          
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            ATTEMPT=$((ATTEMPT + 1))
-            RESPONSE=$(curl -s --max-time 10 "$HEALTH_URL" || echo '{}')
-            VERSION=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('version',''))" 2>/dev/null || echo "")
-            
-            echo "Attempt $ATTEMPT: version='$VERSION'"
-            
-            if echo "$VERSION" | grep -q "$EXPECTED_SHA"; then
-              echo "✅ Deploy verified! Version $VERSION contains SHA $EXPECTED_SHA"
-              exit 0
-            fi
-            
-            sleep 15
-          done
-          
-          echo "❌ Deploy verification failed — expected SHA '$EXPECTED_SHA' not found in health response"
-          exit 1
+          sleep 20
+          ssh ${{ env.SSH_HOST }} \
+            "curl -sf http://localhost:3010/health && echo 'Deploy OK ✓'"

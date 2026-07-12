@@ -2,11 +2,11 @@ version: '3.9'
 
 # ── Rodinka — Production on Synology NAS ────────────────────────────────────
 # Public URL:  https://calendar.krataf.dev  (via Cloudflare tunnel)
-# Internal:    http://localhost:3001
+# Internal:    http://localhost:3010
 #
-# Usage:
-#   cp .env.prod.example .env.prod
-#   nano .env.prod          # fill in secrets
+# Managed by GitHub Actions deploy workflow (SSH + cloudflared).
+# Initial setup / manual:
+#   cd /volume1/docker/rodinka
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 
 services:
@@ -15,7 +15,7 @@ services:
     container_name: rodinka_app
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "3010:3000"
     environment:
       DATABASE_URL: "postgresql://rodinkal:${DB_PASSWORD}@postgres:5432/rodinkal?schema=public"
       SESSION_SECRET: "${SESSION_SECRET}"
@@ -62,27 +62,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # Webhook receiver — listens for GitHub Actions deploy triggers
-  webhook:
-    image: node:20-alpine
-    container_name: rodinka_webhook
-    restart: unless-stopped
-    ports:
-      - "3002:3002"
-    environment:
-      WEBHOOK_SECRET: "${DEPLOY_WEBHOOK_SECRET}"
-      COMPOSE_FILE: /app/docker-compose.prod.yml
-      ENV_FILE: /app/.env.prod
-      GHCR_IMAGE: "ghcr.io/fffiiikkk/rodinkal"
-    volumes:
-      - ./synology/webhook-server.mjs:/app/webhook-server.mjs:ro
-      - ./docker-compose.prod.yml:/app/docker-compose.prod.yml:ro
-      - ./.env.prod:/app/.env.prod:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: ["node", "/app/webhook-server.mjs"]
-    networks:
-      - rodinka_net
 
 volumes:
   rodinka_pgdata:
