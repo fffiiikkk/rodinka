@@ -127,12 +127,9 @@ jobs:
           docker compose -f docker-compose.prod.yml --env-file .env.prod up -d postgres
           sleep 8
 
-          # Run migrations
-          docker run --rm \
-            --env-file .env.prod \
-            -e DATABASE_URL=\$(grep ^DATABASE_URL .env.prod | cut -d= -f2-) \
-            --network rodinka_net \
-            ${IMG}:latest \
+          # Run migrations (use compose so env vars are expanded correctly)
+          docker compose -f docker-compose.prod.yml --env-file .env.prod \
+            run --rm --no-deps app \
             sh -c "cd packages/backend && npx prisma migrate deploy"
 
           # Restart app
