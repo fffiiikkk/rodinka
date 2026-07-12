@@ -136,8 +136,8 @@ function LoginForm() {
           </div>
         </div>
 
-        {/* Demo accounts */}
-        <div className="card p-4">
+        {/* Demo accounts — only visible in dev mode */}
+        {import.meta.env.DEV && <div className="card p-4">
           <p className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
             <span>🧪</span> Testovací účty
             <span className="ml-auto font-normal normal-case tracking-normal text-ink-faint">
@@ -177,7 +177,7 @@ function LoginForm() {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
 
         <p className="text-center text-xs text-ink-faint pb-8">
           Family Calendar • v{(window as any).__APP_VERSION__ ?? 'local'}

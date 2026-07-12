@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Calendar, Users, Paperclip, ChevronLeft, Check, X, Car } from 'lucide-react';
-import { useEvent, useApproveEvent, useRejectEvent, useCancelEvent } from '../hooks/useEvents.js';
+import { MapPin, Calendar, Users, Paperclip, ChevronLeft, Check, X, Car, Pencil, Loader2 } from 'lucide-react';
+import { useEvent, useApproveEvent, useRejectEvent, useCancelEvent, useUpdateEvent } from '../hooks/useEvents.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { formatDateTime } from '../lib/dates.js';
 import { useToast } from '../components/ui/Toast.js';
 import Avatar from '../components/ui/Avatar.js';
+import Sheet from '../components/ui/Sheet.js';
+import EventForm from '../components/events/EventForm.js';
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +23,7 @@ export default function EventDetailPage() {
   const cancel = useCancelEvent();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   if (isLoading) return (
     <div className="p-4 space-y-3">
@@ -167,36 +170,62 @@ export default function EventDetailPage() {
         {isAdmin && (
           <div className="space-y-2">
             {event.status === 'PROPOSED' && (
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button
-                  onClick={() => approve.mutate(event.id, { onSuccess: () => toast('Schváleno!', 'success') })}
-                  className="flex-1 btn-primary flex items-center justify-center gap-2"
+                  disabled={approve.isPending || reject.isPending}
+                  onClick={() => approve.mutate(event.id, {
+                    onSuccess: () => toast('Schváleno!', 'success'),
+                    onError: () => toast('Chyba při schvalování', 'error'),
+                  })}
+                  className="flex-1 btn-primary flex items-center justify-center gap-2 min-h-[48px] disabled:opacity-60"
                 >
-                  <Check size={18} /> Schválit
+                  {approve.isPending ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+                  Schválit
                 </button>
                 <button
-                  onClick={() => reject.mutate(event.id, { onSuccess: () => { toast('Zamítnuto', 'info'); navigate(-1); } })}
-                  className="flex-1 btn-secondary flex items-center justify-center gap-2"
+                  disabled={approve.isPending || reject.isPending}
+                  onClick={() => reject.mutate(event.id, {
+                    onSuccess: () => { toast('Zamítnuto', 'info'); navigate(-1); },
+                    onError: () => toast('Chyba při zamítnutí', 'error'),
+                  })}
+                  className="flex-1 btn-secondary flex items-center justify-center gap-2 min-h-[48px] disabled:opacity-60"
                 >
-                  <X size={18} /> Zamítnout
+                  {reject.isPending ? <Loader2 size={18} className="animate-spin" /> : <X size={18} />}
+                  Zamítnout
                 </button>
               </div>
             )}
 
+            {/* Edit button — always visible for admin on non-holiday events */}
+            {!event.isHoliday && (
+              <button
+                onClick={() => setShowEdit(true)}
+                className="w-full flex items-center justify-center gap-2 border border-border font-semibold py-3 rounded-xl hover:bg-surface-overlay transition-colors text-ink"
+              >
+                <Pencil size={16} /> Upravit událost
+              </button>
+            )}
+
             {event.status === 'APPROVED' && !event.isHoliday && (
               !confirmDelete ? (
-                <button onClick={() => setConfirmDelete(true)} className="w-full text-danger border border-danger/30 font-semibold py-2 rounded-lg">
+                <button onClick={() => setConfirmDelete(true)}
+                  className="w-full text-danger border border-danger/30 font-semibold py-3 rounded-xl hover:bg-danger/5 transition-colors">
                   Zrušit událost
                 </button>
               ) : (
                 <div className="card p-4 border-danger/30 space-y-2">
                   <p className="text-sm font-medium text-center">Opravdu zrušit tuto událost?</p>
                   <div className="flex gap-2">
-                    <button onClick={() => setConfirmDelete(false)} className="btn-secondary flex-1">Ne</button>
+                    <button onClick={() => setConfirmDelete(false)} className="btn-secondary flex-1 min-h-[44px]">Ne</button>
                     <button
-                      onClick={() => cancel.mutate(event.id, { onSuccess: () => { toast('Zrušeno', 'info'); navigate(-1); } })}
-                      className="flex-1 bg-danger text-white font-semibold py-2 rounded-lg"
+                      disabled={cancel.isPending}
+                      onClick={() => cancel.mutate(event.id, {
+                        onSuccess: () => { toast('Zrušeno', 'info'); navigate(-1); },
+                        onError: () => toast('Chyba při rušení', 'error'),
+                      })}
+                      className="flex-1 bg-danger text-white font-semibold py-3 rounded-xl disabled:opacity-60 flex items-center justify-center gap-2"
                     >
+                      {cancel.isPending ? <Loader2 size={16} className="animate-spin" /> : null}
                       Ano, zrušit
                     </button>
                   </div>
@@ -206,6 +235,14 @@ export default function EventDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Sheet */}
+      <Sheet open={showEdit} onClose={() => setShowEdit(false)} title="Upravit událost" fullScreen>
+        <EventForm
+          onClose={() => setShowEdit(false)}
+          initialValues={event}
+        />
+      </Sheet>
     </div>
   );
 }

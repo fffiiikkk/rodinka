@@ -35,11 +35,11 @@ function MotdBanner() {
 
 function ParentDashboard() {
   const { t } = useTranslation();
-  const { data: proposals } = useQuery({
+  const { data: proposals, isLoading: loadingProposals } = useQuery({
     queryKey: ['events', 'proposals'],
     queryFn: () => api.get<{ proposals: any[] }>('/events/proposals').then((r) => r.proposals),
   });
-  const { data: gaps } = useQuery({
+  const { data: gaps, isLoading: loadingGaps } = useQuery({
     queryKey: ['coverage-gaps'],
     queryFn: () => api.get<{ gaps: any[] }>('/availability/coverage-gaps?' + new URLSearchParams({
       from: new Date().toISOString(),
@@ -48,8 +48,20 @@ function ParentDashboard() {
   });
   const { user } = useAuth();
   const from = new Date(); const to = addDays(new Date(), 7);
-  const { data: events } = useEvents(from, to);
+  const { data: events, isLoading: loadingEvents } = useEvents(from, to);
   const { data: progress } = useBadgeProgress();
+
+  if (loadingProposals && loadingGaps && loadingEvents) {
+    return (
+      <div className="px-4 pb-4 space-y-3 pt-4">
+        <div className="skeleton h-8 rounded-xl w-2/3" />
+        <div className="skeleton h-16 rounded-xl" />
+        <div className="skeleton h-24 rounded-xl" />
+        <div className="skeleton h-24 rounded-xl" />
+        <div className="skeleton h-16 rounded-xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 px-4 pb-4">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Calendar, CalendarRange, User, Settings, BarChart2, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, User, Settings } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
 export default function BottomNav() {
@@ -11,18 +11,20 @@ export default function BottomNav() {
   if (!isAuthenticated) return null;
 
   const isAdmin = user?.role === 'PARENT';
+  const isKid = user?.role === 'KID';
 
+  // Max 5 links for comfortable mobile navigation
   const links = [
     { to: '/',         icon: LayoutDashboard, label: t('nav.dashboard') },
     { to: '/calendar', icon: Calendar,        label: t('nav.calendar') },
-    { to: '/schedule', icon: GraduationCap,   label: t('nav.schedule') },
-    { to: '/week',     icon: CalendarRange,   label: t('nav.week') },
+    // Kids & Guardians see "Přehled" (week overview); for parents add kids timeline
+    ...(!isKid
+      ? [{ to: '/kids-timeline', icon: Users, label: 'Děti' }]
+      : []),
     { to: '/profile',  icon: User,            label: t('nav.profile') },
+    // Admin gets a single "Admin" tab (covers reports + settings)
     ...(isAdmin
-      ? [
-          { to: '/reports', icon: BarChart2, label: t('nav.reports') },
-          { to: '/admin',   icon: Settings,  label: t('nav.admin') },
-        ]
+      ? [{ to: '/admin', icon: Settings, label: t('nav.admin') }]
       : []),
   ];
 

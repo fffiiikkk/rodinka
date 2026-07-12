@@ -65,6 +65,15 @@ export const userService = {
     return { items: items.map(serializeUser), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   },
 
+  async listByRole(role: string) {
+    const users = await prisma.user.findMany({
+      where: { role: role as any, isActive: true },
+      select: SELECT,
+      orderBy: { name: 'asc' },
+    });
+    return users.map(serializeUser);
+  },
+
   async listActive() {
     const users = await prisma.user.findMany({
       where: { isActive: true, username: { not: 'system' } },

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { useCreateEvent } from '../../hooks/useEvents.js';
+import { useCreateEvent, useUpdateEvent } from '../../hooks/useEvents.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { api } from '../../lib/api.js';
 import { format, addMinutes } from 'date-fns';
 import { Car } from 'lucide-react';
-import type { EventType } from '@rodinkal/shared';
+import type { Event, EventType } from '@rodinkal/shared';
 import { useToast } from '../ui/Toast.js';
 import TimePicker from '../ui/TimePicker.js';
 import DatePicker from '../ui/DatePicker.js';
@@ -17,13 +17,16 @@ type TransportMode = 'none' | 'user' | 'external' | 'self';
 interface Props {
   onClose: () => void;
   defaultDate?: Date;
+  initialValues?: Event;
 }
 
-export default function EventForm({ onClose, defaultDate = new Date() }: Props) {
+export default function EventForm({ onClose, defaultDate = new Date(), initialValues }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const createEvent = useCreateEvent();
+  const updateEvent = useUpdateEvent();
+  const isEdit = !!initialValues;
 
   const isKid = user?.role === 'KID';
 
@@ -38,33 +41,50 @@ export default function EventForm({ onClose, defaultDate = new Date() }: Props) 
     enabled: !isKid,
   });
 
-  const [selectedType, setSelectedType] = useState<EventType | null>(null);
-  const [step, setStep] = useState<'type' | 'form'>('type');
+  const [selectedType, setSelectedType] = useState<EventType | null>(initialValues?.eventType ?? null);
+  // When editing, skip type selection step
+  const [step, setStep] = useState<'type' | 'form'>(isEdit ? 'form' : 'type');
 
   const defaultStart = new Date(defaultDate);
   defaultStart.setHours(17, 0, 0, 0);
   const defaultEnd = addMinutes(defaultStart, selectedType?.defaultDurationMinutes ?? 60);
 
-  const [title, setTitle] = useState('');
-  // Separate date and time fields for better mobile UX
-  const [startDate, setStartDate] = useState(format(defaultStart, 'yyyy-MM-dd'));
-  const [startTime, setStartTime] = useState(format(defaultStart, 'HH:mm'));
-  const [endDate, setEndDate] = useState(format(defaultEnd, 'yyyy-MM-dd'));
-  const [endTime, setEndTime] = useState(format(defaultEnd, 'HH:mm'));
-  const [location, setLocation] = useState('');
-  const [description, setDescription] = useState('');
-  const [allDay, setAllDay] = useState(false);
-  const [participantIds, setParticipantIds] = useState<string[]>(user ? [user.id] : []);
+  const [title, setTitle] = useState(initialValues?.title ?? '');
+  const [startDate, setStartDate] = useState(
+    initialValues ? format(new Date(initialValues.start), 'yyyy-MM-dd') : format(defaultStart, 'yyyy-MM-dd'),
+  );
+  const [startTime, setStartTime] = useState(
+    initialValues ? format(new Date(initialValues.start), 'HH:mm') : format(defaultStart, 'HH:mm'),
+  );
+  const [endDate, setEndDate] = useState(
+    initialValues ? format(new Date(initialValues.end), 'yyyy-MM-dd') : format(defaultEnd, 'yyyy-MM-dd'),
+  );
+  const [endTime, setEndTime] = useState(
+    initialValues ? format(new Date(initialValues.end), 'HH:mm') : format(defaultEnd, 'HH:mm'),
+  );
+  const [location, setLocation] = useState(initialValues?.location ?? '');
+  const [description, setDescription] = useState(initialValues?.description ?? '');
+  const [allDay, setAllDay] = useState(initialValues?.allDay ?? false);
+  const [participantIds, setParticipantIds] = useState<string[]>(
+    initialValues ? initialValues.participants.map((p) => p.userId) : (user ? [user.id] : []),
+  );
   const [submitting, setSubmitting] = useState(false);
 
   // Recurrence
-  const [recurrenceRule, setRecurrenceRule] = useState<string | null>(null);
+  const [recurrenceRule, setRecurrenceRule] = useState<string | null>(initialValues?.recurrenceRule ?? null);
 
-  // Transport
-  const [transportMode, setTransportMode] = useState<TransportMode>('none');
-  const [transportUserId, setTransportUserId] = useState('');
-  const [transportExternalName, setTransportExternalName] = useState('');
-  const [transportNote, setTransportNote] = useState('');
+  // Transport — derive initial mode from initialValues
+  const initTransportMode = (): TransportMode => {
+    if (!initialValues?.transport) return 'none';
+    if (initialValues.transport.externalName) return 'external';
+    if (initialValues.transport.userRole === 'KID') return 'self';
+    if (initialValues.transport.userId) return 'user';
+    return 'none';
+  };
+  const [transportMode, setTransportMode] = useState<TransportMode>(initTransportMode);
+  const [transportUserId, setTransportUserId] = useState(initialValues?.transport?.userId ?? '');
+  const [transportExternalName, setTransportExternalName] = useState(initialValues?.transport?.externalName ?? '');
+  const [transportNote, setTransportNote] = useState(initialValues?.transport?.note ?? '');
 
   // Derived ISO strings for submission
   const startISO = `${startDate}T${startTime}`;
@@ -101,23 +121,31 @@ export default function EventForm({ onClose, defaultDate = new Date() }: Props) 
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
+
+    const payload = {
+      title,
+      description: description || undefined,
+      eventTypeId: selectedType?.id,
+      start: allDay ? new Date(startDate).toISOString() : new Date(startISO).toISOString(),
+      end: allDay ? new Date(endDate).toISOString() : new Date(endISO).toISOString(),
+      allDay,
+      location: location || undefined,
+      recurrenceRule: recurrenceRule || undefined,
+      participantIds,
+      transportUserId: transportMode === 'user' ? (transportUserId || undefined) :
+                       transportMode === 'self' ? (participantIds[0] || undefined) : undefined,
+      transportExternalName: transportMode === 'external' ? (transportExternalName || undefined) : undefined,
+      transportNote: transportNote || undefined,
+    };
+
     try {
-      await createEvent.mutateAsync({
-        title,
-        description: description || undefined,
-        eventTypeId: selectedType?.id,
-        start: allDay ? new Date(startDate).toISOString() : new Date(startISO).toISOString(),
-        end: allDay ? new Date(endDate).toISOString() : new Date(endISO).toISOString(),
-        allDay,
-        location: location || undefined,
-        recurrenceRule: recurrenceRule || undefined,
-        participantIds,
-        transportUserId: transportMode === 'user' ? (transportUserId || undefined) :
-                         transportMode === 'self' ? (participantIds[0] || undefined) : undefined,
-        transportExternalName: transportMode === 'external' ? (transportExternalName || undefined) : undefined,
-        transportNote: transportNote || undefined,
-      });
-      toast(isKid ? '✋ Návrh odeslán!' : '✅ Událost přidána!', 'success');
+      if (isEdit) {
+        await updateEvent.mutateAsync({ id: initialValues!.id, data: payload });
+        toast('✅ Událost uložena!', 'success');
+      } else {
+        await createEvent.mutateAsync(payload);
+        toast(isKid ? '✋ Návrh odeslán!' : '✅ Událost přidána!', 'success');
+      }
       onClose();
     } catch {
       toast(t('errors.generic'), 'error');

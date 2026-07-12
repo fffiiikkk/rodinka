@@ -18,6 +18,7 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage.js'));
 const BadgesPage = lazy(() => import('./pages/BadgesPage.js'));
 const WeeklyOverviewPage = lazy(() => import('./pages/WeeklyOverviewPage.js'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage.js'));
+const KidsTimelinePage = lazy(() => import('./pages/KidsTimelinePage.js'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.js'));
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -75,6 +76,7 @@ export default function App() {
                     <Route path="/badges" element={<BadgesPage />} />
                     <Route path="/week" element={<WeeklyOverviewPage />} />
                     <Route path="/schedule" element={<SchedulePage />} />
+                    <Route path="/kids-timeline" element={<KidsTimelinePage />} />
                     <Route
                       path="/admin/*"
                       element={

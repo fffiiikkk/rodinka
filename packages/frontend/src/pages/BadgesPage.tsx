@@ -189,12 +189,25 @@ function BadgeDetailSheet({ badge, earned, progressEntry, onClose }: DetailProps
 // ─── Main page ───────────────────────────────────────────────────────────────
 export default function BadgesPage() {
   const { t } = useTranslation();
-  const { data: userBadges = [] } = useMyBadges();
-  const { data: definitions = [] } = useQuery({
+  const { data: userBadges = [], isLoading: loadingBadges } = useMyBadges();
+  const { data: definitions = [], isLoading: loadingDefs } = useQuery({
     queryKey: ['badge-definitions'],
     queryFn: () => api.get<{ definitions: BadgeDefinition[] }>('/badges/definitions').then((r) => r.definitions),
   });
   const { data: progress = [] } = useBadgeProgress();
+  const isLoading = loadingBadges || loadingDefs;
+
+  if (isLoading) {
+    return (
+      <div className="p-4 space-y-3">
+        <div className="skeleton h-20 rounded-2xl" />
+        <div className="flex gap-2">
+          {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-8 rounded-full flex-1" />)}
+        </div>
+        {[...Array(8)].map((_, i) => <div key={i} className="skeleton h-16 rounded-xl" />)}
+      </div>
+    );
+  }
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selected, setSelected] = useState<BadgeDefinition | null>(null);

@@ -69,6 +69,14 @@ router.post('/me/ics-token/regenerate', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Family members list — available to all authenticated users (returns kids for timeline page)
+router.get('/family', async (req, res, next) => {
+  try {
+    const kids = await userService.listByRole('KID');
+    res.json({ members: kids });
+  } catch (e) { next(e); }
+});
+
 // Admin: list users
 router.get('/', requireAdmin, async (req, res, next) => {
   try {

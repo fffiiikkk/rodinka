@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -11,6 +11,13 @@ interface Props {
 }
 
 export default function Sheet({ open, onClose, title, children, fullScreen = false }: Props) {
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+
   return (
     <AnimatePresence>
       {open && (
@@ -23,10 +30,14 @@ export default function Sheet({ open, onClose, title, children, fullScreen = fal
             transition={{ duration: 0.2 }}
             className="fixed inset-0 bg-black/50 z-40 backdrop-blur-[2px]"
             onClick={onClose}
+            aria-hidden="true"
           />
 
           {/* Sheet panel */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
