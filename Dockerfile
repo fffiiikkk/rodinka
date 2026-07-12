@@ -20,6 +20,9 @@ COPY tsconfig.base.json ./
 # Build shared
 RUN npm run build --workspace=packages/shared
 
+# Generate Prisma client BEFORE backend build (needed for TypeScript types)
+RUN cd packages/backend && npx prisma generate
+
 # Build frontend (outputs to packages/backend/dist/public)
 ARG APP_VERSION=local
 ENV APP_VERSION=$APP_VERSION
@@ -27,9 +30,6 @@ RUN npm run build --workspace=packages/frontend
 
 # Build backend
 RUN npm run build --workspace=packages/backend
-
-# Generate Prisma client
-RUN cd packages/backend && npx prisma generate
 
 # ── Production stage ────────────────────────────────────
 FROM node:20-alpine AS production

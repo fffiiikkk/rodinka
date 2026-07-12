@@ -211,7 +211,10 @@ jobs:
 
       - name: Build & seed
         run: |
-          npm run build
+          npm run build --workspace=packages/shared
+          cd packages/backend && npx prisma generate && cd ../..
+          npm run build --workspace=packages/backend
+          npm run build --workspace=packages/frontend
           cd packages/backend
           npx prisma migrate deploy
           npx tsx prisma/seed/index.ts
