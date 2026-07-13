@@ -112,13 +112,44 @@ export const badgeService = {
       return prisma.activityEvent.count({ where: { userId, type: metric } });
     }
 
-    // Event-type-specific counts (metric = EVENT_CREATED_<slug>)
+    // Event-type-specific counts (metric = EVENT_CREATED_<slug>) — creator-based
     if (metric.startsWith('EVENT_CREATED_')) {
       const slug = metric.replace('EVENT_CREATED_', '');
       const eventType = await prisma.eventType.findUnique({ where: { slug } });
       if (!eventType) return 0;
       return prisma.event.count({
         where: { createdById: userId, eventTypeId: eventType.id, status: { not: 'CANCELLED' } },
+      });
+    }
+
+    // Participation-based counts (metric = EVENT_PARTICIPATED_<slug>)
+    // Counts events where the user is an explicit participant (not just creator)
+    if (metric.startsWith('EVENT_PARTICIPATED_')) {
+      const slug = metric.replace('EVENT_PARTICIPATED_', '');
+      const eventType = await prisma.eventType.findUnique({ where: { slug } });
+      if (!eventType) return 0;
+      return prisma.eventParticipant.count({
+        where: {
+          userId,
+          event: { eventTypeId: eventType.id, status: { not: 'CANCELLED' } },
+        },
+      });
+    }
+
+    // Transport-based counts — how many times did the user drive someone
+    if (metric === 'TRANSPORT_COUNT') {
+      return prisma.event.count({
+        where: { transportUserId: userId, status: { not: 'CANCELLED' } },
+      });
+    }
+
+    // Transport for specific event type (metric = EVENT_TRANSPORTED_<slug>)
+    if (metric.startsWith('EVENT_TRANSPORTED_')) {
+      const slug = metric.replace('EVENT_TRANSPORTED_', '');
+      const eventType = await prisma.eventType.findUnique({ where: { slug } });
+      if (!eventType) return 0;
+      return prisma.event.count({
+        where: { transportUserId: userId, eventTypeId: eventType.id, status: { not: 'CANCELLED' } },
       });
     }
 

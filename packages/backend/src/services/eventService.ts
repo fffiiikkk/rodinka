@@ -155,6 +155,20 @@ export const eventService = {
     const actType = userRole === 'KID' ? 'PROPOSAL_SUBMITTED' : 'EVENT_CREATED';
     await activityService.log(userId, actType, { eventId: event.id, eventTypeId: data.eventTypeId });
 
+    // Log participation activity for each participant so badge evaluation works
+    if (data.participantIds?.length) {
+      for (const participantId of data.participantIds) {
+        if (participantId !== userId) {
+          await activityService.log(participantId, 'EVENT_CREATED', { eventId: event.id, eventTypeId: data.eventTypeId, asParticipant: true });
+        }
+      }
+    }
+
+    // Log transport activity for the transport person
+    if (data.transportUserId && data.transportUserId !== userId) {
+      await activityService.log(data.transportUserId, 'EVENT_CREATED', { eventId: event.id, eventTypeId: data.eventTypeId, asTransport: true });
+    }
+
     return serializeEvent(event);
   },
 

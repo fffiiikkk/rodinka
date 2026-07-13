@@ -50,8 +50,11 @@ router.post('/', async (req, res, next) => {
     const data = CreateEventSchema.parse(req.body);
     const event = await eventService.create(data, user.id, user.role);
 
-    // Fire-and-forget badge evaluation
-    void badgeService.evaluateForUser(user.id);
+    // Evaluate badges for everyone involved: creator, participants, transport person
+    const involvedUserIds = new Set<string>([user.id]);
+    if (data.participantIds) data.participantIds.forEach((id) => involvedUserIds.add(id));
+    if (data.transportUserId) involvedUserIds.add(data.transportUserId);
+    for (const uid of involvedUserIds) void badgeService.evaluateForUser(uid);
 
     res.status(201).json({ event });
   } catch (e) { next(e); }
@@ -61,7 +64,11 @@ router.patch('/:id', async (req, res, next) => {
   try {
     const data = UpdateEventSchema.parse(req.body);
     const event = await eventService.update(req.params['id']!, data, req.user!.id);
-    void badgeService.evaluateForUser(req.user!.id);
+    // Evaluate for everyone involved
+    const involvedUserIds = new Set<string>([req.user!.id]);
+    event.participants.forEach((p) => involvedUserIds.add(p.userId));
+    if (event.transport?.userId) involvedUserIds.add(event.transport.userId);
+    for (const uid of involvedUserIds) void badgeService.evaluateForUser(uid);
     res.json({ event });
   } catch (e) { next(e); }
 });

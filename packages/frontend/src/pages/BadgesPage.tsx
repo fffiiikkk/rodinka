@@ -12,22 +12,42 @@ import { cs } from 'date-fns/locale';
 // ─── Human-readable rule descriptions ───────────────────────────────────────
 function ruleDescription(badge: BadgeDefinition): string {
   const { ruleType, metric, threshold } = badge;
+
+  // Participation-based (athlete/family member at the event)
+  if (metric.startsWith('EVENT_PARTICIPATED_')) {
+    const slug = metric.replace('EVENT_PARTICIPATED_', '').replace(/-/g, ' ');
+    if (ruleType === 'FIRST')  return `Zúčastni se svého prvního: ${slug}.`;
+    if (ruleType === 'COUNT')  return `Zúčastni se celkem ${threshold}× aktivity: ${slug}.`;
+    return `${threshold}× účast na: ${slug}.`;
+  }
+
+  // Transport-based (driver)
+  if (metric === 'TRANSPORT_COUNT') {
+    if (ruleType === 'FIRST')  return `Poprvé odveď dítě na aktivitu.`;
+    if (ruleType === 'COUNT')  return `Odveď dítě na aktivitu celkem ${threshold}×.`;
+  }
+  if (metric.startsWith('EVENT_TRANSPORTED_')) {
+    const slug = metric.replace('EVENT_TRANSPORTED_', '').replace(/-/g, ' ');
+    if (ruleType === 'FIRST')  return `Poprvé odveď dítě na: ${slug}.`;
+    if (ruleType === 'COUNT')  return `Odveď dítě na ${slug} celkem ${threshold}×.`;
+  }
+
+  // Creator-based (organizer)
+  if (metric.startsWith('EVENT_CREATED_')) {
+    const slug = metric.replace('EVENT_CREATED_', '').replace(/-/g, ' ');
+    if (ruleType === 'FIRST')  return `Vytvoř svou první událost: ${slug}.`;
+    if (ruleType === 'COUNT')  return `Vytvoř celkem ${threshold} událostí: ${slug}.`;
+  }
+
   const metricLabel: Record<string, string> = {
-    LOGIN:          'přihlášení',
-    EVENTS_CREATED: 'vytvořených událostí',
-    EVENTS_ATTENDED:'zúčastněných událostí',
-    AVAILABILITY:   'zápisů dostupnosti',
-    BADGE_COUNT:    'získaných odznaků',
-    PROFILE_PHOTO:  'nahrání fotky profilu',
-    PASSWORD_CHANGE:'změn hesla',
-    PROPOSAL:       'návrhů události',
-    ATTACHMENT:     'přiložených souborů',
-    ICS_FEED:       'exportů kalendáře',
-    IMPERSONATE:    'zobrazení jako jiný uživatel',
-    PWA:            'instalací jako aplikace',
-    REPORT:         'vygenerovaných reportů',
-    MOTD:           'přečtených zpráv dne',
-    THEME_CHANGE:   'změn tématu',
+    LOGIN:              'přihlášení',
+    EVENT_CREATED:      'vytvořených událostí',
+    EVENT_EDITED:       'upravených událostí',
+    AVAILABILITY_SET:   'zápisů dostupnosti',
+    PROPOSAL_SUBMITTED: 'návrhů události',
+    PROPOSAL_APPROVED:  'schválených návrhů',
+    ATTACHMENT_UPLOADED:'přiložených souborů',
+    THEME_CHANGED:      'změn tématu',
   };
   const m = metricLabel[metric] ?? metric.toLowerCase().replace(/_/g, ' ');
 
