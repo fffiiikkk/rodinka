@@ -1,0 +1,41 @@
+name: Seed Production DB
+
+on:
+  workflow_dispatch:
+
+env:
+  SSH_HOST: ssh.krataf.dev
+
+jobs:
+  seed:
+    name: Run seed on Synology
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install cloudflared
+        run: |
+          curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
+            | sudo gpg --dearmor -o /usr/share/keyrings/cloudflare-main.gpg
+          echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] \
+            https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" \
+            | sudo tee /etc/apt/sources.list.d/cloudflared.list
+          sudo apt-get update -q && sudo apt-get install -y cloudflared
+
+      - name: Configure SSH via Cloudflare Access
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "${{ secrets.SYNOLOGY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >> ~/.ssh/config << EOF
+          Host ${{ env.SSH_HOST }}
+            User ${{ secrets.SYNOLOGY_SSH_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            ServerAliveInterval 30
+            ServerAliveCountMax 3
+            ProxyCommand cloudflared access ssh --hostname %h --service-token-id ${{ secrets.CF_ACCESS_CLIENT_ID }} --service-token-secret ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          EOF
+
+      - name: Run compiled seed inside rodinka_app
+        run: |
+          ssh ${{ env.SSH_HOST }} 'export PATH=/usr/local/bin:$PATH; docker exec rodinka_app sh -c "cd /app/packages/backend && node dist/seed/index.js"'
