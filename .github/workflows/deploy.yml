@@ -157,23 +157,34 @@ jobs:
           echo "Deploy complete on $(hostname) at $(date)"
           SSHEOF
 
+      # ── Container status snapshot before health polling ───────────────────
+      - name: Verify container state
+        run: |
+          echo "Container state 10 s after deploy step:"
+          sleep 10
+          ssh ${{ env.SSH_HOST }} \
+            "export PATH=/usr/local/bin:\$PATH; docker ps -a --filter name=rodinka --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'; echo '--- logs (last 20) ---'; docker logs --tail 20 rodinka_app 2>&1 || echo '(container not found)'" || true
+
       # ── Health check — poll until app responds or timeout after 120 s ─────
       - name: Health check
         run: |
-          echo "Waiting 30 s for app to start (migrations + boot time)..."
-          sleep 30
-          echo "Polling health endpoint..."
-          for i in $(seq 1 18); do
+          echo "Polling health endpoint (up to 120 s)..."
+          for i in $(seq 1 24); do
             result=$(ssh ${{ env.SSH_HOST }} \
               "curl -sf http://localhost:3010/health 2>/dev/null" || true)
             if [ -n "$result" ]; then
               echo "✓ Deploy OK: $result"
               exit 0
             fi
-            echo "  Attempt $i/18 — not ready yet, waiting 5 s..."
+            echo "  Attempt $i/24 — not ready yet, waiting 5 s..."
             sleep 5
           done
-          echo "✗ Health check failed after 120 s — fetching container logs..."
-          ssh ${{ env.SSH_HOST }} \
-            "export PATH=/usr/local/bin:\$PATH; docker logs --tail 60 rodinka_app 2>&1" || true
+          echo "✗ Health check failed after 120 s — diagnostics:"
+          ssh ${{ env.SSH_HOST }} "export PATH=/usr/local/bin:\$PATH; \
+            echo '--- docker ps -a ---'; \
+            docker ps -a --filter name=rodinka --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'; \
+            echo '--- rodinka_app logs ---'; \
+            docker logs --tail 60 rodinka_app 2>&1 || echo '(no container)'; \
+            echo '--- rodinka_db logs ---'; \
+            docker logs --tail 20 rodinka_db 2>&1 || echo '(no db container)'" || true
           exit 1
