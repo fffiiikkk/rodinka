@@ -102,6 +102,22 @@ export const eventService = {
 
     if (!params.expandRecurring) return events.map(serializeEvent);
 
+    // Fetch exceptions (child events) for all recurring parents in the result
+    const recurringParentIds = events.filter((e) => e.recurrenceRule).map((e) => e.id);
+    const exceptions = recurringParentIds.length
+      ? await prisma.event.findMany({
+          where: { parentEventId: { in: recurringParentIds }, start: { gte: params.from, lte: params.to } },
+          include: EVENT_INCLUDE,
+        })
+      : [];
+
+    // Build a set of (parentId, date) pairs for exception dates so we can skip them during expansion
+    const exceptionKey = (parentId: string, dateStr: string) => `${parentId}::${dateStr}`;
+    const exceptionDates = new Set<string>();
+    for (const ex of exceptions) {
+      exceptionDates.add(exceptionKey(ex.parentEventId!, ex.start.toISOString().slice(0, 10)));
+    }
+
     // Expand recurring events — serialize FIRST so occurrences inherit
     // properly shaped participants/transport (flat objects, ISO date strings).
     const expanded: any[] = [];
@@ -109,10 +125,20 @@ export const eventService = {
       if (e.recurrenceRule) {
         const serialized = serializeEvent(e);
         const occurrences = recurrenceService.expand(serialized, params.from, params.to);
-        expanded.push(...occurrences);
+        // Skip dates that have exceptions (the exception replaces the occurrence)
+        for (const occ of occurrences) {
+          if (!exceptionDates.has(exceptionKey(e.id, occ.start.slice(0, 10)))) {
+            expanded.push(occ);
+          }
+        }
       } else {
         expanded.push(serializeEvent(e));
       }
+    }
+
+    // Add non-cancelled exceptions to the result
+    for (const ex of exceptions) {
+      if (ex.status !== 'CANCELLED') expanded.push(serializeEvent(ex));
     }
 
     return expanded.sort((a, b) => a.start.localeCompare(b.start));
@@ -172,6 +198,86 @@ export const eventService = {
     }
 
     return serializeEvent(event);
+  },
+
+  /**
+   * Create an exception for a single occurrence of a recurring event.
+   * The exception is saved as a real child event (parentEventId = parentId)
+   * and will replace the generated occurrence on that date.
+   */
+  async createException(parentId: string, data: CreateEventInput, userId: string) {
+    const parent = await prisma.event.findUnique({ where: { id: parentId }, include: EVENT_INCLUDE });
+    if (!parent) throw createError(404, 'Parent event not found', 'NOT_FOUND');
+    if (!parent.recurrenceRule) throw createError(400, 'Event is not a recurring series', 'BAD_REQUEST');
+
+    const event = await prisma.event.create({
+      data: {
+        title: data.title,
+        description: data.description,
+        eventTypeId: data.eventTypeId,
+        start: new Date(data.start),
+        end: new Date(data.end),
+        allDay: data.allDay ?? false,
+        location: data.location,
+        colorOverride: data.colorOverride,
+        recurrenceRule: null, // exceptions are not themselves recurring
+        parentEventId: parentId,
+        createdById: userId,
+        status: parent.status, // inherit parent approval status
+        transportUserId: data.transportUserId ?? null,
+        transportExternalName: data.transportExternalName ?? null,
+        transportNote: data.transportNote ?? null,
+        ...(data.transportDirection !== undefined && { transportDirection: data.transportDirection ?? null } as any),
+        ...(data.transportCoversSupervision !== undefined && { transportCoversSupervision: data.transportCoversSupervision ?? null } as any),
+        participants: data.participantIds?.length
+          ? { create: data.participantIds.map((uid) => ({ userId: uid })) }
+          : undefined,
+      },
+      include: EVENT_INCLUDE,
+    });
+
+    await activityService.log(userId, 'EVENT_EDITED', { eventId: parentId, note: 'occurrence_exception' });
+    return serializeEvent(event);
+  },
+
+  /**
+   * Cancel a single occurrence of a recurring event by creating a CANCELLED exception.
+   * The expansion logic will skip this date when generating occurrences.
+   */
+  async cancelOccurrence(parentId: string, occurrenceDate: string, userId: string) {
+    const parent = await prisma.event.findUnique({ where: { id: parentId } });
+    if (!parent) throw createError(404, 'Parent event not found', 'NOT_FOUND');
+    if (!parent.recurrenceRule) throw createError(400, 'Event is not a recurring series', 'BAD_REQUEST');
+
+    const durationMs = parent.end.getTime() - parent.start.getTime();
+    const occStart = new Date(`${occurrenceDate}T${parent.start.toISOString().slice(11)}`);
+    const occEnd = new Date(occStart.getTime() + durationMs);
+
+    // Upsert so double-cancels are idempotent
+    const existing = await prisma.event.findFirst({
+      where: { parentEventId: parentId, start: occStart },
+    });
+    if (existing) {
+      await prisma.event.update({ where: { id: existing.id }, data: { status: 'CANCELLED' } });
+    } else {
+      await prisma.event.create({
+        data: {
+          title: parent.title,
+          description: parent.description,
+          eventTypeId: parent.eventTypeId,
+          start: occStart,
+          end: occEnd,
+          allDay: parent.allDay,
+          parentEventId: parentId,
+          recurrenceRule: null,
+          createdById: userId,
+          status: 'CANCELLED',
+        },
+      });
+    }
+
+    await activityService.log(userId, 'EVENT_EDITED', { eventId: parentId, note: 'occurrence_cancelled' });
+    return { ok: true };
   },
 
   async update(id: string, data: UpdateEventInput, userId: string) {

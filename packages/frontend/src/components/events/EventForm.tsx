@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { useCreateEvent, useUpdateEvent } from '../../hooks/useEvents.js';
+import { useCreateEvent, useUpdateEvent, useCreateException } from '../../hooks/useEvents.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { api } from '../../lib/api.js';
 import { format, addMinutes, differenceInMinutes } from 'date-fns';
@@ -27,14 +27,17 @@ interface Props {
   onClose: () => void;
   defaultDate?: Date;
   initialValues?: Event;
+  /** When set, saving creates an exception for this occurrence instead of updating the parent */
+  exceptionFor?: { parentId: string; occurrenceDate: string };
 }
 
-export default function EventForm({ onClose, defaultDate = new Date(), initialValues }: Props) {
+export default function EventForm({ onClose, defaultDate = new Date(), initialValues, exceptionFor }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
+  const createException = useCreateException();
   const isEdit = !!initialValues;
   const isKid = user?.role === 'KID';
 
@@ -199,7 +202,11 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
     setSubmitting(true);
 
     try {
-      if (isEdit) {
+      if (exceptionFor) {
+        // Save an exception for one occurrence of a recurring series
+        await createException.mutateAsync({ parentId: exceptionFor.parentId, data: buildPayload() });
+        toast('✅ Tato instance upravena!', 'success');
+      } else if (isEdit) {
         await updateEvent.mutateAsync({ id: initialValues!.id, data: buildPayload() });
         toast('✅ Událost uložena!', 'success');
       } else {

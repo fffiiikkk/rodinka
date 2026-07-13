@@ -73,6 +73,27 @@ router.patch('/:id', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Create an exception for one occurrence of a recurring series
+router.post('/:id/exception', async (req, res, next) => {
+  try {
+    const data = CreateEventSchema.parse(req.body);
+    const event = await eventService.createException(req.params['id']!, data, req.user!.id);
+    res.status(201).json({ event });
+  } catch (e) { next(e); }
+});
+
+// Cancel one occurrence of a recurring series (date = yyyy-MM-dd)
+router.delete('/:id/occurrence/:date', async (req, res, next) => {
+  try {
+    const result = await eventService.cancelOccurrence(
+      req.params['id']!,
+      req.params['date']!,
+      req.user!.id,
+    );
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
 router.post('/:id/approve', requireRole('PARENT'), async (req, res, next) => {
   try {
     const event = await eventService.approve(req.params['id'] as string, req.user!.id);

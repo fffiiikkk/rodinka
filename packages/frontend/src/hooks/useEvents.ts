@@ -80,3 +80,23 @@ export function useCancelEvent() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); },
   });
 }
+
+/** Create an exception for a single occurrence of a recurring event */
+export function useCreateException() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ parentId, data }: { parentId: string; data: CreateEventInput }) =>
+      api.post<{ event: Event }>(`/events/${parentId}/exception`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); },
+  });
+}
+
+/** Cancel a single occurrence (creates a CANCELLED exception placeholder) */
+export function useCancelOccurrence() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ parentId, date }: { parentId: string; date: string }) =>
+      api.delete(`/events/${parentId}/occurrence/${date}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); },
+  });
+}

@@ -22,6 +22,15 @@ function safeIcon(icon: string | undefined | null, fallback = '📌'): string {
   return /[a-zA-Z0-9]/.test(icon) ? fallback : icon;
 }
 
+/** Build the URL for an event, including ?occ= for recurring occurrences. */
+function occUrl(event: { id: string; start: string; [key: string]: unknown }): string {
+  const parentId: string = (event as any).originalId ?? event.id;
+  if ((event as any).isOccurrence && (event as any).originalId) {
+    return `/event/${parentId}?occ=${event.start.slice(0, 10)}`;
+  }
+  return `/event/${parentId}`;
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function weekDays(startDate: Date): Date[] {
@@ -143,7 +152,7 @@ function KidDayCard({ day, events, calEvents, idx }: {
             {events.map((e) => {
               const cheer = getCheer(e);
               return (
-                <Link key={e.id} to={`/event/${e.id}`}
+                <Link key={e.id} to={occUrl(e as any)}
                   className="flex items-center gap-3 p-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay transition-colors"
                 >
                   <span className="text-2xl">{safeIcon(e.eventType?.icon)}</span>
@@ -289,7 +298,7 @@ function GuardianDaySection({
         ) : (
           <>
             {events.map((e) => (
-              <Link key={e.id} to={`/event/${e.id}`}
+              <Link key={e.id} to={occUrl(e as any)}
                 className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-overlay transition-colors"
               >
                 <span className="text-lg shrink-0">{safeIcon(e.eventType?.icon)}</span>

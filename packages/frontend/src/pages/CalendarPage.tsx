@@ -20,6 +20,16 @@ import type { Event, Availability } from '@rodinkal/shared';
 
 const LANE_H = 28; // px per multi-day event lane (used in MonthGrid & WeekTimeGrid)
 
+/** Build the navigation URL for an event or recurring occurrence. */
+function occUrl(event: { id: string; start: string; [key: string]: unknown }): string {
+  const parentId: string = (event as any).originalId ?? event.id;
+  if ((event as any).isOccurrence && (event as any).originalId) {
+    const dateStr = event.start.slice(0, 10);
+    return `/event/${parentId}?occ=${dateStr}`;
+  }
+  return `/event/${parentId}`;
+}
+
 // ─── Week Time-Grid ────────────────────────────────────────────────────────────
 
 const HOUR_START = 7;
@@ -84,9 +94,8 @@ function TgEventBlock({ event }: { event: Event & { originalId?: string; isOccur
   const end = new Date(event.end);
   const top = tgTop(start);
   const height = tgHeight(start, end);
-  const navId = (event as any).originalId ?? event.id;
   return (
-    <a href={`/event/${navId}`}
+    <a href={occUrl(event as any)}
       className="absolute left-0.5 right-0.5 rounded-lg px-2 py-1 overflow-hidden hover:brightness-95 active:scale-[0.98] transition-all z-10 shadow-sm"
       style={{ top: `${top}px`, height: `${height}px`, background: color + '30', borderLeft: `3px solid ${color}`, minHeight: 24 }}>
       <p className="text-[11px] font-bold leading-tight truncate" style={{ color }}>
@@ -165,12 +174,11 @@ function TgAllDaySection({
           <div className="w-12 shrink-0 absolute left-0 top-0 bottom-0" />
           {spanLayouts.map(({ event, colStart, colEnd, startsHere, endsHere, lane }) => {
             const color = event.eventType?.color ?? event.colorOverride ?? '#a3a3a3';
-            const navId = (event as any).originalId ?? event.id;
             const gutterW = 48; // 12 * 4 = w-12
             return (
               <a
                 key={`tg-span-${event.id}`}
-                href={`/event/${navId}`}
+                href={occUrl(event as any)}
                 className="absolute flex items-center overflow-hidden text-xs font-bold hover:brightness-95 transition-all"
                 style={{
                   left: `calc(${gutterW}px + ${(colStart / 7) * 100}%)`,
@@ -206,7 +214,7 @@ function TgAllDaySection({
                 {chips.map((e) => {
                   const color = e.eventType?.color ?? e.colorOverride ?? '#a3a3a3';
                   return (
-                    <a key={e.id} href={`/event/${(e as any).originalId ?? e.id}`}
+                    <a key={e.id} href={occUrl(e as any)}
                       className="block text-[9px] font-bold px-1 py-0.5 rounded truncate"
                       style={{ background: color + '35', color }}>
                       {safeIcon(e.eventType?.icon)} {e.title}
@@ -579,9 +587,8 @@ function AgendaView({
                 {continuingEvents.map((e) => {
                   const color = e.eventType?.color ?? e.colorOverride ?? '#a3a3a3';
                   const endDay = e.end.slice(0, 10);
-                  const navId = (e as any).originalId ?? e.id;
                   return (
-                    <a key={`cont-${e.id}`} href={`/event/${navId}`}
+                    <a key={`cont-${e.id}`} href={occUrl(e as any)}
                       className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 border border-dashed border-border hover:border-primary/40 transition-colors"
                       style={{ borderLeftColor: color, borderLeftWidth: 3, borderLeftStyle: 'solid' }}
                     >
@@ -656,12 +663,11 @@ function EventChip({ event }: { event: Event & { originalId?: string; isOccurren
   const isMultiDay = endDay > startDay;
   const startTime = event.allDay ? '' : new Date(event.start).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
   const transport = transportLabel(event.transport);
-  const navId = event.originalId ?? event.id;
   const isRecurring = !!(event.recurrenceRule || event.isOccurrence);
 
   return (
     <a
-      href={`/event/${navId}`}
+      href={occUrl(event as any)}
       className="flex items-center gap-2 rounded-xl p-2.5 border border-border/60 hover:shadow-raised hover:border-border active:scale-[.99] transition-all"
       style={{
         borderLeftColor: color,
@@ -850,7 +856,7 @@ function MonthGrid({ events, availability, layer, currentDate, currentUserId, is
                           return (
                             <a
                               key={e.id}
-                              href={`/event/${(e as any).originalId ?? e.id}`}
+                              href={occUrl(e as any)}
                               className="block text-[10px] px-1 py-0.5 rounded font-medium leading-tight"
                               style={{ background: color + '30', color }}
                             >
@@ -892,7 +898,6 @@ function MonthGrid({ events, availability, layer, currentDate, currentUserId, is
                 <div className="relative border-t border-border/40 bg-surface/50 px-px" style={{ height: `${spanAreaHeight}px` }}>
                   {spanningLayouts.map(({ event, colStart, colEnd, startsHere, endsHere, lane }) => {
                     const color = event.eventType?.color ?? event.colorOverride ?? '#a3a3a3';
-                    const navId = (event as any).originalId ?? event.id;
                     const leftPct = `${(colStart / 7) * 100}%`;
                     const rightPct = `${((6 - colEnd) / 7) * 100}%`;
                     const rTL = startsHere ? 6 : 0;
@@ -900,7 +905,7 @@ function MonthGrid({ events, availability, layer, currentDate, currentUserId, is
                     return (
                       <a
                         key={`${event.id}-w${weekIdx}`}
-                        href={`/event/${navId}`}
+                        href={occUrl(event as any)}
                         className="absolute flex items-center overflow-hidden text-[11px] font-bold hover:brightness-90 active:scale-[0.99] transition-all select-none shadow-sm"
                         style={{
                           left: leftPct,

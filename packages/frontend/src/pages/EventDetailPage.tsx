@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Calendar, Users, Paperclip, ChevronLeft, Check, X, Car, Pencil, Loader2, Copy } from 'lucide-react';
-import { useEvent, useApproveEvent, useRejectEvent, useCancelEvent, useCreateEvent } from '../hooks/useEvents.js';
+import { MapPin, Calendar, Users, Paperclip, ChevronLeft, Check, X, Car, Pencil, Loader2, Copy, RefreshCw } from 'lucide-react';
+import { useEvent, useApproveEvent, useRejectEvent, useCancelEvent, useCreateEvent, useCancelOccurrence } from '../hooks/useEvents.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { formatDateTime } from '../lib/dates.js';
 import { useToast } from '../components/ui/Toast.js';
@@ -12,8 +12,64 @@ import EventForm from '../components/events/EventForm.js';
 import DatePicker from '../components/ui/DatePicker.js';
 import { format } from 'date-fns';
 
+/** Dialog that asks whether to apply an action to one occurrence or the whole series */
+function OccurrenceChoiceDialog({
+  action,
+  onOccurrence,
+  onSeries,
+  onCancel,
+}: {
+  action: 'edit' | 'delete';
+  onOccurrence: () => void;
+  onSeries: () => void;
+  onCancel: () => void;
+}) {
+  const isEdit = action === 'edit';
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onCancel}>
+      <div
+        className="w-full max-w-sm bg-surface rounded-t-2xl shadow-2xl p-5 space-y-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <RefreshCw size={18} className="text-primary" />
+          <h3 className="font-bold text-ink text-base">Opakující se událost</h3>
+        </div>
+        <p className="text-sm text-ink-muted">
+          {isEdit
+            ? 'Chcete upravit pouze tuto instanci, nebo celou sérii?'
+            : 'Chcete zrušit pouze tuto instanci, nebo celou sérii?'}
+        </p>
+        <div className="space-y-2 pt-1">
+          <button
+            onClick={onOccurrence}
+            className="w-full py-3 rounded-xl border-2 border-primary bg-primary/8 text-primary font-semibold text-sm hover:bg-primary/15 transition-colors"
+          >
+            {isEdit ? '✏️ Jen tuto instanci' : '🗑️ Jen tuto instanci'}
+          </button>
+          <button
+            onClick={onSeries}
+            className="w-full py-3 rounded-xl border border-border text-ink font-semibold text-sm hover:bg-surface-overlay transition-colors"
+          >
+            {isEdit ? '📋 Celou sérii' : '❌ Celou sérii'}
+          </button>
+          <button
+            onClick={onCancel}
+            className="w-full py-2 text-ink-muted text-sm hover:text-ink transition-colors"
+          >
+            Zrušit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  /** yyyy-MM-dd of the specific occurrence we came from (if any) */
+  const occurrenceDate = searchParams.get('occ') ?? null;
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -23,13 +79,19 @@ export default function EventDetailPage() {
   const approve = useApproveEvent();
   const reject = useRejectEvent();
   const cancel = useCancelEvent();
+  const cancelOcc = useCancelOccurrence();
   const createEvent = useCreateEvent();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
+  // 'choose' shows the series-vs-occurrence dialog; 'occurrence'/'series' go straight to action
+  const [editDialog, setEditDialog] = useState<'choose' | 'occurrence' | 'series' | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<'choose' | null>(null);
   const [showCopy, setShowCopy] = useState(false);
   const [copyDate, setCopyDate] = useState('');
   const [copying, setCopying] = useState(false);
+
+  const isRecurringSeries = !!event?.recurrenceRule;
+  const showEdit = editDialog === 'series' || editDialog === 'occurrence';
 
   if (isLoading) return (
     <div className="p-3 space-y-2">
@@ -96,7 +158,12 @@ export default function EventDetailPage() {
             <p className="text-[11px] text-ink-muted leading-none mt-0.5">{event.eventType.nameCs}</p>
           )}
         </div>
-        {event.status !== 'APPROVED' && (
+        {isRecurringSeries && (
+          <span className="text-[10px] font-bold px-2 py-1 rounded-full shrink-0 bg-primary/10 text-primary flex items-center gap-1">
+            <RefreshCw size={10} /> Série
+          </span>
+        )}
+        {!isRecurringSeries && event.status !== 'APPROVED' && (
           <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${
             event.status === 'PROPOSED' ? 'bg-warning/15 text-warning' : 'bg-danger/15 text-danger'
           }`}>
@@ -104,6 +171,16 @@ export default function EventDetailPage() {
           </span>
         )}
       </div>
+
+      {/* ── Occurrence banner ──────────────────────────────────────── */}
+      {isRecurringSeries && occurrenceDate && (
+        <div className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/8 border border-primary/20">
+          <RefreshCw size={13} className="text-primary shrink-0" />
+          <p className="text-xs text-primary font-medium">
+            Zobrazujete instanci <strong>{occurrenceDate}</strong> z opakující se série.
+          </p>
+        </div>
+      )}
 
       {/* ── Detail card (all rows in one card with dividers) ────────── */}
       <div className="mx-3 rounded-xl border border-border bg-surface-raised overflow-hidden divide-y divide-border">
@@ -260,7 +337,10 @@ export default function EventDetailPage() {
           {!event.isHoliday && (
             <div className="flex gap-2">
               <button
-                onClick={() => setShowEdit(true)}
+                onClick={() => {
+                  if (isRecurringSeries && occurrenceDate) setEditDialog('choose');
+                  else setEditDialog('series');
+                }}
                 className="flex-1 flex items-center justify-center gap-1.5 border border-border text-sm font-semibold py-2.5 rounded-xl hover:bg-surface-overlay transition-colors text-ink"
               >
                 <Pencil size={14} /> Upravit
@@ -278,7 +358,10 @@ export default function EventDetailPage() {
           {event.status === 'APPROVED' && !event.isHoliday && (
             !confirmDelete ? (
               <button
-                onClick={() => setConfirmDelete(true)}
+                onClick={() => {
+                  if (isRecurringSeries && occurrenceDate) setDeleteDialog('choose');
+                  else setConfirmDelete(true);
+                }}
                 className="w-full text-danger border border-danger/30 text-sm font-semibold py-2.5 rounded-xl hover:bg-danger/5 transition-colors"
               >
                 Zrušit událost
@@ -307,9 +390,56 @@ export default function EventDetailPage() {
       )}
 
       {/* ── Edit Sheet ──────────────────────────────────────────────── */}
-      <Sheet open={showEdit} onClose={() => setShowEdit(false)} title="Upravit událost" fullScreen>
-        <EventForm onClose={() => setShowEdit(false)} initialValues={event} />
+      <Sheet open={showEdit} onClose={() => setEditDialog(null)} title={editDialog === 'occurrence' ? 'Upravit tuto instanci' : 'Upravit událost'} fullScreen>
+        {editDialog === 'occurrence' && occurrenceDate ? (
+          /* Override start/end date to the occurrence date, save as exception */
+          <EventForm
+            onClose={() => setEditDialog(null)}
+            initialValues={{
+              ...event,
+              // Shift the start/end to the occurrence date while keeping times
+              start: `${occurrenceDate}T${event.start.slice(11)}`,
+              end: `${occurrenceDate}T${event.end.slice(11)}`,
+              recurrenceRule: null, // exception has no recurrence
+            }}
+            exceptionFor={{ parentId: event.id, occurrenceDate }}
+          />
+        ) : (
+          <EventForm onClose={() => setEditDialog(null)} initialValues={event} />
+        )}
       </Sheet>
+
+      {/* ── Occurrence-vs-series choice (edit) ─────────────────────── */}
+      {editDialog === 'choose' && (
+        <OccurrenceChoiceDialog
+          action="edit"
+          onOccurrence={() => setEditDialog('occurrence')}
+          onSeries={() => setEditDialog('series')}
+          onCancel={() => setEditDialog(null)}
+        />
+      )}
+
+      {/* ── Occurrence-vs-series choice (delete) ───────────────────── */}
+      {deleteDialog === 'choose' && (
+        <OccurrenceChoiceDialog
+          action="delete"
+          onOccurrence={() => {
+            setDeleteDialog(null);
+            cancelOcc.mutate(
+              { parentId: event.id, date: occurrenceDate! },
+              {
+                onSuccess: () => { toast('Instance zrušena', 'info'); navigate(-1); },
+                onError: () => toast('Chyba při rušení', 'error'),
+              },
+            );
+          }}
+          onSeries={() => {
+            setDeleteDialog(null);
+            setConfirmDelete(true);
+          }}
+          onCancel={() => setDeleteDialog(null)}
+        />
+      )}
 
       {/* ── Copy Sheet ──────────────────────────────────────────────── */}
       <Sheet open={showCopy} onClose={() => setShowCopy(false)} title="Zkopírovat na jiný den">

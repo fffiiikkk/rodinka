@@ -24,6 +24,15 @@ function safeIcon(icon: string | undefined | null, fallback = '📌'): string {
   return /[a-zA-Z0-9]/.test(icon) ? fallback : icon;
 }
 
+/** Build the URL for an event, including ?occ= for recurring occurrences. */
+function occUrl(event: { id: string; start: string; [key: string]: unknown }): string {
+  const parentId: string = (event as any).originalId ?? event.id;
+  if ((event as any).isOccurrence && (event as any).originalId) {
+    return `/event/${parentId}?occ=${event.start.slice(0, 10)}`;
+  }
+  return `/event/${parentId}`;
+}
+
 // ─── Data fetching ─────────────────────────────────────────────────────────────
 
 function useFamilyKids() {
@@ -196,7 +205,7 @@ function DayCell({
         return (
           <Link
             key={e.id}
-            to={`/event/${(e as any).originalId ?? e.id}`}
+            to={occUrl(e as any)}
             className="block rounded-lg px-2 py-1.5 hover:brightness-95 transition-all"
             style={{ background: color + '22', borderLeft: `3px solid ${color}` }}
           >
