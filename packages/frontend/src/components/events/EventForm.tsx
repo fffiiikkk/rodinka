@@ -13,6 +13,7 @@ import DatePicker from '../ui/DatePicker.js';
 import RecurrenceEditor from './RecurrenceEditor.js';
 
 type TransportMode = 'none' | 'user' | 'external' | 'self';
+type TransportDirection = 'BOTH' | 'THERE' | 'BACK';
 
 interface OccurrenceSlot {
   startDate: string;
@@ -97,9 +98,23 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
   const [transportUserId, setTransportUserId] = useState(initialValues?.transport?.userId ?? '');
   const [transportExternalName, setTransportExternalName] = useState(initialValues?.transport?.externalName ?? '');
   const [transportNote, setTransportNote] = useState(initialValues?.transport?.note ?? '');
+  const [transportDirection, setTransportDirection] = useState<TransportDirection>(
+    (initialValues?.transport?.direction as TransportDirection | null) ?? 'BOTH',
+  );
+  // null = default (assumed covers supervision), false = does NOT cover
+  const [transportCoversSupervision, setTransportCoversSupervision] = useState<boolean | null>(
+    initialValues?.transport?.coversSupervision ?? null,
+  );
 
   const startISO = `${startDate}T${startTime}`;
   const endISO = `${endDate}T${endTime}`;
+
+  // Determine if all selected participants are adults (non-KID) — transport is optional in that case
+  const selectedParticipantRoles = usersData
+    ? participantIds.map((id) => usersData.find((u: any) => u.id === id)?.role ?? 'PARENT')
+    : [];
+  const allParticipantsAdult = selectedParticipantRoles.length > 0
+    && selectedParticipantRoles.every((r) => r !== 'KID');
 
   const DURATIONS = [
     { label: '15m', minutes: 15 },
@@ -173,6 +188,8 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
                      transportMode === 'self' ? (participantIds[0] || undefined) : undefined,
     transportExternalName: transportMode === 'external' ? (transportExternalName || undefined) : undefined,
     transportNote: transportNote || undefined,
+    transportDirection: transportMode !== 'none' ? transportDirection : undefined,
+    transportCoversSupervision: transportMode !== 'none' ? (transportCoversSupervision ?? undefined) : undefined,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -479,6 +496,9 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
             {showTransport ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             <Car size={13} />
             <span>Doprava / zodpovědná osoba</span>
+            {allParticipantsAdult && transportMode === 'none' && (
+              <span className="ml-auto text-[10px] text-ink-faint italic">dospělí se odvezou sami</span>
+            )}
             {transportActive && (
               <span className="ml-auto text-[10px] text-primary font-bold">nastaveno</span>
             )}
@@ -486,6 +506,12 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
 
           {showTransport && (
             <div className="pl-4 space-y-2">
+              {/* Hint for adult-only events */}
+              {allParticipantsAdult && (
+                <p className="text-[11px] text-ink-faint bg-surface-raised rounded-lg px-2.5 py-1.5 border border-border">
+                  💡 Pouze dospělí účastníci — doprava není nutná. Vyplň jen pokud je třeba koordinovat odvoz.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-1">
                 {([
                   { id: 'none',     icon: '—',  label: 'Bez dopravy' },
@@ -519,7 +545,61 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
                 <input className="input text-sm" placeholder="Jméno osoby…" value={transportExternalName} onChange={(e) => setTransportExternalName(e.target.value)} />
               )}
               {(transportMode === 'self' || transportMode === 'user' || transportMode === 'external') && (
-                <input className="input text-sm" placeholder="Poznámka k dopravě…" value={transportNote} onChange={(e) => setTransportNote(e.target.value)} />
+                <>
+                  <input className="input text-sm" placeholder="Poznámka k dopravě…" value={transportNote} onChange={(e) => setTransportNote(e.target.value)} />
+
+                  {/* Direction: which way does the transport cover? */}
+                  <div>
+                    <label className="label text-[10px]">Směr dopravy</label>
+                    <div className="flex gap-1">
+                      {([
+                        { id: 'BOTH',  label: '↔ Tam i zpět' },
+                        { id: 'THERE', label: '→ Jen tam' },
+                        { id: 'BACK',  label: '← Jen zpět' },
+                      ] as { id: TransportDirection; label: string }[]).map(({ id, label }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setTransportDirection(id)}
+                          className={`flex-1 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
+                            transportDirection === id
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border text-ink-muted hover:border-primary/40'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Supervision: does the transport person also cover supervision? */}
+                  {!allParticipantsAdult && (
+                    <div>
+                      <label className="label text-[10px]">Hlídání při aktivitě</label>
+                      <div className="flex gap-1">
+                        {([
+                          { value: null,  label: '✅ Zajistí (výchozí)' },
+                          { value: false, label: '❌ Nezajistí' },
+                        ] as { value: boolean | null; label: string }[]).map(({ value, label }) => (
+                          <button
+                            key={String(value)}
+                            type="button"
+                            onClick={() => setTransportCoversSupervision(value)}
+                            className={`flex-1 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
+                              transportCoversSupervision === value
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-border text-ink-muted hover:border-primary/40'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-ink-faint mt-1">Obecně při aktivitě hlídání není třeba. Pokud ano — označ.</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

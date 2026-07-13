@@ -1,23 +1,35 @@
 /**
- * AvailabilitySheet — three modes:
+ * UnavailabilitySheet — three modes:
  *  "unavailable" — guardian marks days they CANNOT watch children
  *  "available"   — guardian marks days they ARE available (e.g. vacation week)
  *  "external"    — admin records an external helper
+ *
+ * Supports:
+ *  - editItem: pre-fill form to edit an existing record
+ *  - adminUsers: list of users admin can create for (non-own record)
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format, addDays } from 'date-fns';
 import { UserX, UserCheck, CalendarCheck } from 'lucide-react';
 import DatePicker from '../ui/DatePicker.js';
 import { useAuth } from '../../hooks/useAuth.js';
-import { useCreateAvailability } from '../../hooks/useAvailability.js';
+import { useCreateAvailability, useUpdateAvailability } from '../../hooks/useAvailability.js';
 import { useToast } from '../ui/Toast.js';
+import type { Availability } from '@rodinkal/shared';
 
 export type AvailabilityMode = 'unavailable' | 'available' | 'external';
+
+interface AdminUser {
+  id: string;
+  name: string;
+}
 
 interface Props {
   onClose: () => void;
   defaultDate?: Date;
   initialMode?: AvailabilityMode;
+  editItem?: Availability;          // edit mode when provided
+  adminUsers?: AdminUser[];          // list of other users admin can select
 }
 
 const UNAVAIL_PRESETS = [
@@ -79,22 +91,49 @@ const MODE_CONFIG = {
   },
 } as const;
 
-export default function UnavailabilitySheet({ onClose, defaultDate, initialMode }: Props) {
+function isoDateStr(isoString: string) {
+  return isoString.slice(0, 10);
+}
+
+export default function UnavailabilitySheet({ onClose, defaultDate, initialMode, editItem, adminUsers }: Props) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'PARENT';
   const create = useCreateAvailability();
+  const update = useUpdateAvailability();
   const { toast } = useToast();
 
-  const [mode, setMode] = useState<AvailabilityMode>(initialMode ?? 'unavailable');
-  const [dateFrom, setDateFrom] = useState(defaultDate ? format(defaultDate, 'yyyy-MM-dd') : todayStr());
-  const [dateTo,   setDateTo]   = useState(
-    defaultDate ? format(addDays(defaultDate, 6), 'yyyy-MM-dd')
-                : format(addDays(new Date(), 6), 'yyyy-MM-dd'),
+  const isEdit = !!editItem;
+
+  // Derive initial mode from editItem if present
+  const derivedMode = editItem
+    ? editItem.isExternal
+      ? 'external'
+      : editItem.status === 'UNAVAILABLE' ? 'unavailable' : 'available'
+    : (initialMode ?? 'unavailable');
+
+  const [mode, setMode] = useState<AvailabilityMode>(derivedMode);
+
+  const [dateFrom, setDateFrom] = useState(
+    editItem ? isoDateStr(editItem.dateFrom)
+    : defaultDate ? format(defaultDate, 'yyyy-MM-dd')
+    : todayStr()
   );
-  const [note, setNote]                 = useState('');
-  const [externalName, setExternalName] = useState('');
-  const [externalRole, setExternalRole] = useState('');
+  const [dateTo, setDateTo] = useState(
+    editItem ? isoDateStr(editItem.dateTo)
+    : defaultDate ? format(addDays(defaultDate, 6), 'yyyy-MM-dd')
+    : format(addDays(new Date(), 6), 'yyyy-MM-dd')
+  );
+  const [note, setNote]                 = useState(editItem?.note ?? '');
+  const [externalName, setExternalName] = useState(editItem?.externalName ?? '');
+  const [externalRole, setExternalRole] = useState(editItem?.externalRole ?? '');
+  // Admin: target user (for creating on behalf of someone)
+  const [targetUserId, setTargetUserId] = useState<string>(editItem?.userId ?? user?.id ?? '');
   const [saving, setSaving]             = useState(false);
+
+  // If adminUsers changes, reset targetUserId to current user
+  useEffect(() => {
+    if (!isEdit) setTargetUserId(user?.id ?? '');
+  }, [isEdit, user?.id]);
 
   const cfg = MODE_CONFIG[mode];
 
@@ -106,7 +145,22 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode 
       const from = new Date(`${dateFrom}T00:00:00`);
       const to   = new Date(`${dateTo}T23:59:59`);
 
-      if (mode === 'external') {
+      if (isEdit && editItem) {
+        // Update existing record
+        await update.mutateAsync({
+          id: editItem.id,
+          data: {
+            dateFrom: from.toISOString(),
+            dateTo: to.toISOString(),
+            status: mode === 'unavailable' ? 'UNAVAILABLE' : 'AVAILABLE',
+            note: note || undefined,
+            isExternal: mode === 'external' ? true : undefined,
+            externalName: mode === 'external' ? externalName.trim() : undefined,
+            externalRole: mode === 'external' ? externalRole : undefined,
+          },
+        });
+        toast('✅ Záznam upraven', 'success');
+      } else if (mode === 'external') {
         if (!externalName.trim()) { toast('Zadej jméno osoby', 'error'); setSaving(false); return; }
         await create.mutateAsync({
           dateFrom: from.toISOString(), dateTo: to.toISOString(),
@@ -121,7 +175,9 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode 
           dateFrom: from.toISOString(), dateTo: to.toISOString(),
           status: mode === 'unavailable' ? 'UNAVAILABLE' : 'AVAILABLE',
           note: note || undefined,
-        });
+          // Admin creating for another user
+          ...(isAdmin && targetUserId && targetUserId !== user?.id ? { userId: targetUserId } : {}),
+        } as any);
         toast(cfg.toast, 'success');
       }
       onClose();
@@ -129,11 +185,14 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode 
     finally { setSaving(false); }
   };
 
-  // Modes available for tab switching (only when not locked to initialMode)
-  const showTabs = !initialMode;
+  const showTabs = !initialMode && !isEdit;
   const tabs: AvailabilityMode[] = isAdmin
     ? ['unavailable', 'available', 'external']
     : ['unavailable', 'available'];
+
+  // Whose availability is this for (display)
+  const targetUserName = adminUsers?.find((u) => u.id === targetUserId)?.name
+    ?? (targetUserId === user?.id ? (user?.name ?? 'já') : '');
 
   return (
     <form onSubmit={handleSubmit} className="p-4 space-y-4">
@@ -158,6 +217,31 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode 
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Admin: user selector (non-external modes only) */}
+      {isAdmin && !isEdit && mode !== 'external' && adminUsers && adminUsers.length > 0 && (
+        <div>
+          <label className="label">Pro koho</label>
+          <select
+            className="input"
+            value={targetUserId}
+            onChange={(e) => setTargetUserId(e.target.value)}
+          >
+            <option value={user?.id ?? ''}>Já ({user?.name})</option>
+            {adminUsers.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Edit mode: show whose record this is */}
+      {isEdit && (
+        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-surface-raised border border-border text-sm">
+          <span className="text-ink-muted">Záznam pro:</span>
+          <span className="font-semibold text-ink">{editItem?.userName ?? targetUserName}</span>
         </div>
       )}
 
@@ -197,7 +281,12 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode 
       {mode === 'available' && (
         <div className="flex items-start gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
           <CalendarCheck size={18} className="shrink-0 mt-0.5" />
-          <p>Oznámuješ, že <strong>jsi k dispozici</strong> pro hlídání dětí v tomto období — i když normálně ne.</p>
+          <p>
+            {isAdmin && targetUserId !== user?.id && targetUserName
+              ? <><strong>{targetUserName}</strong> oznámí dostupnost pro hlídání v tomto období.</>
+              : <>Oznámuješ, že <strong>jsi k dispozici</strong> pro hlídání dětí v tomto období — i když normálně ne.</>
+            }
+          </p>
         </div>
       )}
 
@@ -259,7 +348,7 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode 
       <div className="flex gap-3 pt-1">
         <button type="button" onClick={onClose} className="btn-secondary flex-1">Zrušit</button>
         <button type="submit" disabled={saving} className={`flex-1 font-semibold py-2.5 rounded-xl transition-all ${cfg.btnCls}`}>
-          {saving ? 'Ukládám…' : cfg.submitLabel}
+          {saving ? 'Ukládám…' : isEdit ? 'Uložit změny' : cfg.submitLabel}
         </button>
       </div>
     </form>

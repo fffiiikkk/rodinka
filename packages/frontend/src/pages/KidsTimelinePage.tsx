@@ -193,6 +193,30 @@ function DayCell({
             {e.location && (
               <p className="text-[10px] text-ink-faint truncate">📍 {e.location}</p>
             )}
+            {/* Transport + participants row */}
+            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+              {e.transport?.userName && (
+                <span className="text-[9px] text-ink-faint flex items-center gap-0.5">
+                  🚗 {e.transport.userName}
+                  {e.transport.direction && e.transport.direction !== 'BOTH' && (
+                    <span>{e.transport.direction === 'THERE' ? '→' : '←'}</span>
+                  )}
+                </span>
+              )}
+              {e.transport?.externalName && (
+                <span className="text-[9px] text-ink-faint">🤝 {e.transport.externalName}</span>
+              )}
+              {e.participants.slice(0, 3).map((p) => (
+                <span key={p.userId} title={p.name}
+                  className="w-3.5 h-3.5 rounded-full text-white text-[7px] font-bold flex items-center justify-center"
+                  style={{ background: p.role === 'KID' ? '#8b5cf6' : '#0ea5e9' }}>
+                  {p.name.slice(0, 1).toUpperCase()}
+                </span>
+              ))}
+              {e.participants.length > 3 && (
+                <span className="text-[9px] text-ink-faint">+{e.participants.length - 3}</span>
+              )}
+            </div>
           </Link>
         );
       })}

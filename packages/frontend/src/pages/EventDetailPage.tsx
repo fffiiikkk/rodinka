@@ -65,6 +65,8 @@ export default function EventDetailPage() {
         transportUserId: event.transport?.userId ?? undefined,
         transportExternalName: event.transport?.externalName ?? undefined,
         transportNote: event.transport?.note ?? undefined,
+        transportDirection: (event.transport?.direction as any) ?? undefined,
+        transportCoversSupervision: event.transport?.coversSupervision ?? undefined,
       } as any);
       toast('✅ Událost zkopírována!', 'success');
       setShowCopy(false);
@@ -150,6 +152,18 @@ export default function EventDetailPage() {
               ) : null}
               {event.transport.note && (
                 <p className="text-xs text-ink-muted">{event.transport.note}</p>
+              )}
+              {/* Direction badge */}
+              {event.transport.direction && event.transport.direction !== 'BOTH' && (
+                <span className="inline-block mt-0.5 text-[10px] font-semibold bg-warning/15 text-warning px-1.5 py-0.5 rounded-full">
+                  {event.transport.direction === 'THERE' ? '→ Jen tam' : '← Jen zpět'}
+                </span>
+              )}
+              {/* Supervision badge — only show when explicitly false */}
+              {event.transport.coversSupervision === false && (
+                <span className="inline-block mt-0.5 ml-1 text-[10px] font-semibold bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full">
+                  ❌ hlídání nezajistí
+                </span>
               )}
             </div>
           </div>

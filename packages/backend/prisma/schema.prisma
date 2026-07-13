@@ -190,10 +190,14 @@ model Event {
   isHoliday      Boolean     @default(false)
 
   // Transport responsibility — who gets the child there/back
-  transportUserId      String?          // registered user (parent, grandparent, even kid themselves)
-  transportUser        User?            @relation("EventTransport", fields: [transportUserId], references: [id])
-  transportExternalName String?         @db.VarChar(100)  // external person not in system
-  transportNote        String?          @db.VarChar(300)  // "walks", "train 15:30", extra info
+  transportUserId              String?
+  transportUser                User?    @relation("EventTransport", fields: [transportUserId], references: [id])
+  transportExternalName        String?  @db.VarChar(100)
+  transportNote                String?  @db.VarChar(300)
+  // BOTH (default) | THERE | BACK — which direction the transport covers
+  transportDirection           String?
+  // null = default (assumed covers supervision when transporter set), false = does NOT cover supervision
+  transportCoversSupervision   Boolean?
 
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt

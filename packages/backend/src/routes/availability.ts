@@ -39,7 +39,8 @@ router.post('/', requireRole('PARENT', 'GRANDPARENT', 'RELATIVE'), async (req, r
 router.patch('/:id', requireRole('PARENT', 'GRANDPARENT', 'RELATIVE'), async (req, res, next) => {
   try {
     const data = UpdateAvailabilitySchema.parse(req.body);
-    const item = await availabilityService.update(req.params['id'] as string, req.user!.id, data);
+    const isAdmin = req.user!.role === 'PARENT';
+    const item = await availabilityService.update(req.params['id'] as string, req.user!.id, data, isAdmin);
     res.json({ item });
   } catch (e) { next(e); }
 });

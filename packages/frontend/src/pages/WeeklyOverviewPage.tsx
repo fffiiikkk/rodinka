@@ -296,12 +296,32 @@ function GuardianDaySection({
                   {e.transport?.userName && (
                     <p className="text-xs text-ink-faint flex items-center gap-1 mt-0.5">
                       <Car size={10} /> {e.transport.userName}
+                      {e.transport.direction && e.transport.direction !== 'BOTH' && (
+                        <span className="text-warning font-semibold">
+                          {e.transport.direction === 'THERE' ? '→' : '←'}
+                        </span>
+                      )}
                     </p>
                   )}
                   {e.transport?.externalName && (
                     <p className="text-xs text-ink-faint flex items-center gap-1 mt-0.5">
                       <Car size={10} /> {e.transport.externalName} (ext.)
                     </p>
+                  )}
+                  {/* Participants */}
+                  {e.participants.length > 0 && (
+                    <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
+                      {e.participants.slice(0, 4).map((p) => (
+                        <span key={p.userId} title={p.name}
+                          className="w-4 h-4 rounded-full text-white text-[8px] font-bold flex items-center justify-center"
+                          style={{ background: p.role === 'KID' ? '#8b5cf6' : '#0ea5e9' }}>
+                          {p.name.slice(0, 1).toUpperCase()}
+                        </span>
+                      ))}
+                      {e.participants.length > 4 && (
+                        <span className="text-[10px] text-ink-faint">+{e.participants.length - 4}</span>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div

@@ -22,6 +22,8 @@ function serializeTransport(event: any) {
     userRole: event.transportUser?.role ?? null,
     externalName: event.transportExternalName ?? null,
     note: event.transportNote ?? null,
+    direction: (event.transportDirection as 'BOTH' | 'THERE' | 'BACK' | null) ?? null,
+    coversSupervision: event.transportCoversSupervision ?? null,
   };
 }
 
@@ -140,6 +142,9 @@ export const eventService = {
         transportUserId: data.transportUserId ?? null,
         transportExternalName: data.transportExternalName ?? null,
         transportNote: data.transportNote ?? null,
+        // New fields — added via migration 20260713_add_transport_direction
+        ...(data.transportDirection !== undefined && { transportDirection: data.transportDirection ?? null } as any),
+        ...(data.transportCoversSupervision !== undefined && { transportCoversSupervision: data.transportCoversSupervision ?? null } as any),
         participants: data.participantIds?.length
           ? { create: data.participantIds.map((uid) => ({ userId: uid })) }
           : undefined,
@@ -173,6 +178,8 @@ export const eventService = {
         ...(data.transportUserId !== undefined && { transportUserId: data.transportUserId ?? null }),
         ...(data.transportExternalName !== undefined && { transportExternalName: data.transportExternalName ?? null }),
         ...(data.transportNote !== undefined && { transportNote: data.transportNote ?? null }),
+        ...(data.transportDirection !== undefined && { transportDirection: data.transportDirection ?? null } as any),
+        ...(data.transportCoversSupervision !== undefined && { transportCoversSupervision: data.transportCoversSupervision ?? null } as any),
         ...(data.participantIds !== undefined && {
           participants: {
             deleteMany: {},

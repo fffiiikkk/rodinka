@@ -35,11 +35,15 @@ export const EventParticipantSchema = z.object({
 });
 
 export const TransportSchema = z.object({
-  userId: z.string().nullable(),        // registered user (incl. the kid themselves)
-  userName: z.string().nullable(),      // resolved name for display
-  userRole: z.string().nullable(),      // role of the user (to detect self-transport)
-  externalName: z.string().nullable(),  // non-registered external person
-  note: z.string().nullable(),          // "jde pěšky", "vlak 15:30", etc.
+  userId: z.string().nullable(),
+  userName: z.string().nullable(),
+  userRole: z.string().nullable(),
+  externalName: z.string().nullable(),
+  note: z.string().nullable(),
+  // BOTH | THERE | BACK — which direction the transport covers (null = BOTH)
+  direction: z.enum(['BOTH', 'THERE', 'BACK']).nullable(),
+  // null = assumed covers supervision when transporter set, false = does NOT cover supervision
+  coversSupervision: z.boolean().nullable(),
 });
 
 export const EventSchema = z.object({
@@ -81,6 +85,8 @@ export const CreateEventSchema = z.object({
   transportUserId: z.string().optional(),
   transportExternalName: z.string().max(100).optional(),
   transportNote: z.string().max(300).optional(),
+  transportDirection: z.enum(['BOTH', 'THERE', 'BACK']).optional(),
+  transportCoversSupervision: z.boolean().optional(),
 });
 
 export const UpdateEventSchema = CreateEventSchema.partial();

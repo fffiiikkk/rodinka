@@ -70,10 +70,10 @@ export const availabilityService = {
     return serialize(avail);
   },
 
-  async update(id: string, userId: string, data: Partial<CreateAvailabilityInput>) {
+  async update(id: string, userId: string, data: Partial<CreateAvailabilityInput>, isAdmin = false) {
     const existing = await prisma.availability.findUnique({ where: { id } });
     if (!existing) throw createError(404, 'Availability not found', 'NOT_FOUND');
-    if (existing.userId !== userId) throw createError(403, 'Not your availability', 'FORBIDDEN');
+    if (!isAdmin && existing.userId !== userId) throw createError(403, 'Not your availability', 'FORBIDDEN');
 
     const avail = await prisma.availability.update({
       where: { id },

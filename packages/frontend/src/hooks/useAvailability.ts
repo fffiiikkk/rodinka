@@ -25,6 +25,15 @@ export function useCreateAvailability() {
   });
 }
 
+export function useUpdateAvailability() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<import('@rodinkal/shared').CreateAvailabilityInput> }) =>
+      api.patch<{ item: Availability }>(`/availability/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['availability'] }),
+  });
+}
+
 export function useDeleteAvailability() {
   const qc = useQueryClient();
   return useMutation({

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Plus, UserX, UserCheck, CalendarCheck, SlidersHorizontal, X, RotateCcw } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents.js';
 import { useAvailability, useDeleteAvailability } from '../hooks/useAvailability.js';
+import { useAdultUsers } from '../hooks/useUsers.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { monthRange, weekRange, addMonths, addWeeks, parseISO } from '../lib/dates.js';
 import { eachDayOfInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, addDays, isToday } from 'date-fns';
@@ -96,6 +97,20 @@ function TgEventBlock({ event }: { event: Event & { originalId?: string; isOccur
           {start.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
           –{end.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
         </p>
+      )}
+      {height > 50 && event.participants.length > 0 && (
+        <div className="flex gap-0.5 mt-0.5">
+          {event.participants.slice(0, 3).map((p) => (
+            <span key={p.userId} title={p.name}
+              className="w-3.5 h-3.5 rounded-full text-white text-[7px] font-bold flex items-center justify-center"
+              style={{ background: p.role === 'KID' ? '#8b5cf6' : '#0ea5e9' }}>
+              {p.name.slice(0, 1)}
+            </span>
+          ))}
+          {event.participants.length > 3 && (
+            <span className="text-[8px] text-ink-faint">+{event.participants.length - 3}</span>
+          )}
+        </div>
       )}
     </a>
   );
@@ -446,7 +461,18 @@ function isMultiDayEvent(e: Event): boolean {
   return e.end.slice(0, 10) > e.start.slice(0, 10);
 }
 
-function AgendaView({ events, availability, layer, from, to }: { events: Event[]; availability: Availability[]; layer: CalendarLayerEvent[]; from: Date; to: Date }) {
+function AgendaView({
+  events, availability, layer, from, to,
+  onEditAvail, onDeleteAvail,
+}: {
+  events: Event[];
+  availability: Availability[];
+  layer: CalendarLayerEvent[];
+  from: Date;
+  to: Date;
+  onEditAvail?: (item: Availability) => void;
+  onDeleteAvail?: (item: Availability) => void;
+}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const days = eachDayOfInterval({ start: from, end: to });
@@ -509,7 +535,13 @@ function AgendaView({ events, availability, layer, from, to }: { events: Event[]
               </div>
             </div>
             <BirthdayStrip items={dayLayerItems} />
-            <AvailabilityStrip items={dayAvailItems} />
+            <AvailabilityStrip
+              items={dayAvailItems}
+              currentUserId={user?.id}
+              isAdmin={user?.role === 'PARENT'}
+              onEdit={onEditAvail}
+              onDelete={onDeleteAvail}
+            />
             {/* Continuing multi-day events (started earlier) */}
             {continuingEvents.length > 0 && (
               <div className="ml-9 space-y-1 pb-1">
@@ -557,6 +589,27 @@ function transportLabel(t: Event['transport']): string | null {
   return null;
 }
 
+function ParticipantAvatars({ participants }: { participants: Event['participants'] }) {
+  if (!participants.length) return null;
+  const shown = participants.slice(0, 4);
+  const rest = participants.length - 4;
+  return (
+    <span className="flex items-center gap-0.5">
+      {shown.map((p) => (
+        <span
+          key={p.userId}
+          title={p.name}
+          className="w-4 h-4 rounded-full text-white text-[8px] font-bold flex items-center justify-center ring-1 ring-white/60 shrink-0"
+          style={{ background: p.role === 'KID' ? '#8b5cf6' : '#0ea5e9' }}
+        >
+          {p.name.slice(0, 1).toUpperCase()}
+        </span>
+      ))}
+      {rest > 0 && <span className="text-[10px] text-ink-faint font-medium">+{rest}</span>}
+    </span>
+  );
+}
+
 function EventChip({ event }: { event: Event & { originalId?: string; isOccurrence?: boolean } }) {
   const color = event.eventType?.color ?? event.colorOverride ?? '#a3a3a3';
   const startDay = event.start.slice(0, 10);
@@ -592,6 +645,7 @@ function EventChip({ event }: { event: Event & { originalId?: string; isOccurren
           {transport && (
             <span className="text-xs font-medium text-primary/80 bg-primary/8 px-1.5 py-0.5 rounded-full">{transport}</span>
           )}
+          <ParticipantAvatars participants={event.participants} />
         </div>
       </div>
       {event.status === 'PROPOSED' && (
@@ -797,8 +851,11 @@ export default function CalendarPage() {
   const [showAvail, setShowAvail] = useState(false);
   const [showExternal, setShowExternal] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
+  const [editAvailItem, setEditAvailItem] = useState<Availability | null>(null);
   const [filter, setFilterState] = useState<CalendarFilter>(loadFilter);
   const { user } = useAuth();
+  const deleteAvailability = useDeleteAvailability();
+  const { data: adultUsers = [] } = useAdultUsers();
 
   const setFilter = (f: CalendarFilter) => {
     setFilterState(f);
@@ -953,7 +1010,19 @@ export default function CalendarPage() {
         ) : view === 'week' ? (
           <WeekTimeGrid events={filteredEvents} weekStart={queryFrom} availability={availability} />
         ) : (
-          <AgendaView events={filteredEvents} availability={availability} layer={layer} from={queryFrom} to={queryTo} />
+          <AgendaView
+            events={filteredEvents}
+            availability={availability}
+            layer={layer}
+            from={queryFrom}
+            to={queryTo}
+            onEditAvail={(item) => setEditAvailItem(item)}
+            onDeleteAvail={(item) => {
+              if (window.confirm(`Smazat záznam pro ${item.isExternal ? item.externalName : item.userName}?`)) {
+                deleteAvailability.mutate(item.id);
+              }
+            }}
+          />
         )}
       </div>
 
@@ -1000,15 +1069,39 @@ export default function CalendarPage() {
       </Sheet>
 
       <Sheet open={showUnavail} onClose={() => setShowUnavail(false)} title="Nastavit nedostupnost">
-        <UnavailabilitySheet onClose={() => setShowUnavail(false)} defaultDate={currentDate} initialMode="unavailable" />
+        <UnavailabilitySheet
+          onClose={() => setShowUnavail(false)}
+          defaultDate={currentDate}
+          initialMode="unavailable"
+          adminUsers={user?.role === 'PARENT' ? adultUsers.filter((u) => u.id !== user.id) : undefined}
+        />
       </Sheet>
 
       <Sheet open={showAvail} onClose={() => setShowAvail(false)} title="Nastavit dostupnost">
-        <UnavailabilitySheet onClose={() => setShowAvail(false)} defaultDate={currentDate} initialMode="available" />
+        <UnavailabilitySheet
+          onClose={() => setShowAvail(false)}
+          defaultDate={currentDate}
+          initialMode="available"
+          adminUsers={user?.role === 'PARENT' ? adultUsers.filter((u) => u.id !== user.id) : undefined}
+        />
       </Sheet>
 
       <Sheet open={showExternal} onClose={() => setShowExternal(false)} title="Přidat externí výpomoc">
         <UnavailabilitySheet onClose={() => setShowExternal(false)} defaultDate={currentDate} initialMode="external" />
+      </Sheet>
+
+      {/* Edit existing availability record */}
+      <Sheet
+        open={!!editAvailItem}
+        onClose={() => setEditAvailItem(null)}
+        title="Upravit záznam"
+      >
+        {editAvailItem && (
+          <UnavailabilitySheet
+            onClose={() => setEditAvailItem(null)}
+            editItem={editAvailItem}
+          />
+        )}
       </Sheet>
 
       <FilterSheet
