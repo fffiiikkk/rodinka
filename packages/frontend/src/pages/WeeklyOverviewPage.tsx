@@ -16,6 +16,12 @@ import { useCalendarLayer } from '../hooks/useCalendarLayer.js';
 import type { Event } from '@rodinkal/shared';
 import type { Availability } from '@rodinkal/shared';
 
+/** Render icon only if it looks like an emoji/symbol — not a plain-text label. */
+function safeIcon(icon: string | undefined | null, fallback = '📌'): string {
+  if (!icon) return fallback;
+  return /[a-zA-Z0-9]/.test(icon) ? fallback : icon;
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function weekDays(startDate: Date): Date[] {
@@ -123,7 +129,7 @@ function KidDayCard({ day, events, calEvents, idx }: {
             {format(day, 'd. MMMM', { locale: cs })}
           </p>
         </div>
-        <div className="text-4xl">{isEmpty ? emptyMsg[0] : (events[0]?.eventType?.icon ?? '📅')}</div>
+        <div className="text-4xl">{isEmpty ? emptyMsg[0] : safeIcon(events[0]?.eventType?.icon, '📅')}</div>
       </div>
 
       {/* Content */}
@@ -140,7 +146,7 @@ function KidDayCard({ day, events, calEvents, idx }: {
                 <Link key={e.id} to={`/event/${e.id}`}
                   className="flex items-center gap-3 p-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay transition-colors"
                 >
-                  <span className="text-2xl">{e.eventType?.icon ?? '📌'}</span>
+                  <span className="text-2xl">{safeIcon(e.eventType?.icon)}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm text-ink truncate">{e.title}</p>
                     <p className="text-xs text-ink-muted">
@@ -286,7 +292,7 @@ function GuardianDaySection({
               <Link key={e.id} to={`/event/${e.id}`}
                 className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-overlay transition-colors"
               >
-                <span className="text-lg shrink-0">{e.eventType?.icon ?? '📌'}</span>
+                <span className="text-lg shrink-0">{safeIcon(e.eventType?.icon)}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-ink truncate">{e.title}</p>
                   <p className="text-xs text-ink-muted">

@@ -90,7 +90,7 @@ function TgEventBlock({ event }: { event: Event & { originalId?: string; isOccur
       className="absolute left-0.5 right-0.5 rounded-lg px-2 py-1 overflow-hidden hover:brightness-95 active:scale-[0.98] transition-all z-10 shadow-sm"
       style={{ top: `${top}px`, height: `${height}px`, background: color + '30', borderLeft: `3px solid ${color}`, minHeight: 24 }}>
       <p className="text-[11px] font-bold leading-tight truncate" style={{ color }}>
-        {event.eventType?.icon} {event.title}
+        {safeIcon(event.eventType?.icon)} {event.title}
       </p>
       {height > 34 && (
         <p className="text-[10px] text-ink-muted leading-tight mt-0.5">
@@ -187,7 +187,7 @@ function TgAllDaySection({
                 }}
               >
                 <span className="truncate">
-                  {startsHere ? `${event.eventType?.icon ?? '📌'} ${event.title}` : `↳ ${event.title}`}
+                  {startsHere ? `${safeIcon(event.eventType?.icon)} ${event.title}` : `↳ ${event.title}`}
                 </span>
               </a>
             );
@@ -210,7 +210,7 @@ function TgAllDaySection({
                     <a key={e.id} href={`/event/${(e as any).originalId ?? e.id}`}
                       className="block text-[9px] font-bold px-1 py-0.5 rounded truncate"
                       style={{ background: color + '35', color }}>
-                      {e.eventType?.icon} {e.title}
+                      {safeIcon(e.eventType?.icon)} {e.title}
                     </a>
                   );
                 })}
@@ -554,7 +554,7 @@ function AgendaView({
                       className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 border border-dashed border-border hover:border-primary/40 transition-colors"
                       style={{ borderLeftColor: color, borderLeftWidth: 3, borderLeftStyle: 'solid' }}
                     >
-                      <span className="text-base opacity-60">{e.eventType?.icon ?? '📌'}</span>
+                      <span className="text-base opacity-60">{safeIcon(e.eventType?.icon)}</span>
                       <span className="text-xs text-ink-muted truncate flex-1">
                         ↳ {e.title}
                         <span className="ml-1 opacity-60">až {endDay}</span>
@@ -576,6 +576,14 @@ function AgendaView({
       })}
     </div>
   );
+}
+
+/** Return the icon only when it looks like an emoji/symbol.
+ *  Prevents plain-text icon values (e.g. "Tenis") from rendering as large labels. */
+function safeIcon(icon: string | undefined | null, fallback = '📌'): string {
+  if (!icon) return fallback;
+  // If the value contains ASCII letters or digits it's a text label, not an emoji
+  return /[a-zA-Z0-9]/.test(icon) ? fallback : icon;
 }
 
 function transportLabel(t: Event['transport']): string | null {
@@ -630,7 +638,7 @@ function EventChip({ event }: { event: Event & { originalId?: string; isOccurren
         background: color + '0d',
       }}
     >
-      <span className="text-lg shrink-0">{event.eventType?.icon ?? '📌'}</span>
+      <span className="text-lg shrink-0">{safeIcon(event.eventType?.icon)}</span>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm text-ink truncate">{event.title}</p>
         <div className="flex items-center gap-2 text-xs text-ink-muted flex-wrap">
@@ -770,7 +778,7 @@ function MonthGrid({ events, availability, layer, currentDate }: { events: Event
                         }}
                       >
                         <span className={`truncate ${!startsHere ? 'opacity-60' : ''}`}>
-                          {startsHere ? `${event.eventType?.icon ?? '📌'} ${event.title}` : `↳ ${event.title}`}
+                          {startsHere ? `${safeIcon(event.eventType?.icon)} ${event.title}` : `↳ ${event.title}`}
                         </span>
                         {!endsHere && (
                           <span className="ml-auto shrink-0 text-base leading-none opacity-70 pr-0.5">›</span>
@@ -824,7 +832,7 @@ function MonthGrid({ events, availability, layer, currentDate }: { events: Event
                               color: e.eventType?.color ?? '#475569',
                             }}
                           >
-                            {e.eventType?.icon ?? '•'} {e.title}
+                            {safeIcon(e.eventType?.icon, '•')} {e.title}
                           </a>
                         ))}
                       </div>

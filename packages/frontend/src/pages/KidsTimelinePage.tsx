@@ -18,6 +18,12 @@ import Sheet from '../components/ui/Sheet.js';
 import Avatar from '../components/ui/Avatar.js';
 import type { Event, UserPublic } from '@rodinkal/shared';
 
+/** Render icon only if it looks like an emoji/symbol — not a plain-text label. */
+function safeIcon(icon: string | undefined | null, fallback = '📌'): string {
+  if (!icon) return fallback;
+  return /[a-zA-Z0-9]/.test(icon) ? fallback : icon;
+}
+
 // ─── Data fetching ─────────────────────────────────────────────────────────────
 
 function useFamilyKids() {
@@ -144,10 +150,10 @@ function CollisionTooltip({ reasons }: { reasons: ConflictReason[] }) {
                 Kolize s {r.otherKidName}:
               </span>
               <span className="text-red-600 dark:text-red-400">
-                {r.myEvent.eventType?.icon ?? '📌'} {r.myEvent.title} ({timeLabel(r.myEvent)})
+                {safeIcon(r.myEvent.eventType?.icon)} {r.myEvent.title} ({timeLabel(r.myEvent)})
               </span>
               <span className="text-red-500">
-                ↔ {r.otherEvent.eventType?.icon ?? '📌'} {r.otherEvent.title} ({timeLabel(r.otherEvent)})
+                ↔ {safeIcon(r.otherEvent.eventType?.icon)} {r.otherEvent.title} ({timeLabel(r.otherEvent)})
               </span>
             </div>
           ))}
@@ -187,7 +193,7 @@ function DayCell({
             style={{ background: color + '22', borderLeft: `3px solid ${color}` }}
           >
             <p className="text-xs font-semibold text-ink leading-tight truncate">
-              {e.eventType?.icon ?? '📌'} {e.title}
+              {safeIcon(e.eventType?.icon)} {e.title}
             </p>
             <p className="text-[10px] text-ink-muted leading-tight mt-0.5">{timeLabel(e)}</p>
             {e.location && (
@@ -382,8 +388,11 @@ function ColumnPickerSheet({
 
 const LS_KEY = 'kids-timeline-extra-cols';
 
-// Heights: TopBar = 56px (h-14), sub-header ≈ 44px → thead sticks at 100px
-const THEAD_TOP = '100px';
+// TopBar = 56px (h-14), sub-header ≈ 44px = 100px total above the scroll container
+const SUBHEADER_H = 44; // px
+const TOPBAR_H    = 56; // px (h-14)
+const BOTTOM_NAV_H = 56; // px (BottomNav height)
+const TABLE_HEIGHT = `calc(100dvh - ${TOPBAR_H + SUBHEADER_H + BOTTOM_NAV_H}px)`;
 
 export default function KidsTimelinePage() {
   // Fixed 12-week range: 1 week before today → 11 weeks after
@@ -427,19 +436,27 @@ export default function KidsTimelinePage() {
   // Column picker sheet
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Auto-scroll to today's row
-  const todayRef = useRef<HTMLTableRowElement>(null);
-  const scrollOnce = useRef(false);
-  useEffect(() => {
-    if (!isLoading && todayRef.current && !scrollOnce.current) {
-      scrollOnce.current = true;
-      todayRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [isLoading]);
+  // Auto-scroll to today's row inside the fixed-height scroll container
+  const todayRef    = useRef<HTMLTableRowElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const scrollOnce  = useRef(false);
 
   const scrollToToday = useCallback(() => {
-    todayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const row = todayRef.current;
+    const container = scrollerRef.current;
+    if (!row || !container) return;
+    // Scroll the container so the row is centred
+    const rowTop = row.offsetTop;
+    container.scrollTo({ top: rowTop - container.clientHeight / 2, behavior: 'smooth' });
   }, []);
+
+  useEffect(() => {
+    if (!isLoading && !scrollOnce.current) {
+      scrollOnce.current = true;
+      // Small timeout to let the layout settle after data arrives
+      setTimeout(scrollToToday, 80);
+    }
+  }, [isLoading, scrollToToday]);
 
   // All columns = kids + extra adults
   const allColumns: Array<{ user: UserPublic; isKid: boolean }> = [
@@ -453,7 +470,7 @@ export default function KidsTimelinePage() {
   function isWeekStart(day: Date): boolean { return getDay(day) === 1; }
 
   return (
-    <div className="pb-20">
+    <div>
       {/* Sticky sub-header */}
       <div className="sticky top-14 z-30 bg-surface/95 backdrop-blur-sm border-b border-border px-4 py-2 flex items-center gap-2">
         <p className="text-xs text-ink-muted font-medium flex-1">
@@ -491,13 +508,15 @@ export default function KidsTimelinePage() {
           <p className="text-sm font-semibold">Žádné děti nejsou v systému</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        // Single scroll container for both axes — required for position:sticky on thead to work.
+        // overflow-x-auto alone creates a new stacking context that breaks vertical sticky.
+        <div ref={scrollerRef} className="overflow-auto" style={{ height: TABLE_HEIGHT }}>
           <table
             className="w-full border-collapse"
             style={{ minWidth: `${allColumns.length * 90 + 72}px` }}
           >
-            {/* Sticky kid/adult header — sits below both TopBar and sub-header */}
-            <thead className="sticky z-20" style={{ top: THEAD_TOP }}>
+            {/* Sticky column header — sticks at top:0 within the scroll container */}
+            <thead className="sticky top-0 z-20">
               <tr className="bg-surface-raised border-b-2 border-border shadow-sm">
                 <th className="w-16 text-left px-2 py-1 text-xs font-bold text-ink-muted sticky left-0 bg-surface-raised z-30 border-r border-border">
                   Den
@@ -570,10 +589,10 @@ export default function KidsTimelinePage() {
                 return (
                   <React.Fragment key={dayStr}>
                     {mLabel && (
-                      <tr className="bg-primary/10 border-y border-primary/20">
+                      <tr className="border-y border-primary/20">
                         <td
                           colSpan={allColumns.length + 2}
-                          className="px-3 py-1 text-xs font-extrabold text-primary uppercase tracking-wider sticky left-0"
+                          className="px-3 py-1.5 text-xs font-extrabold text-primary uppercase tracking-wider sticky left-0 z-10 bg-primary/10"
                         >
                           {mLabel}
                         </td>
