@@ -5,7 +5,7 @@ on:
     inputs:
       lines:
         description: "Number of log lines to tail"
-        default: "100"
+        default: "150"
         required: false
 
 env:
@@ -13,7 +13,7 @@ env:
 
 jobs:
   logs:
-    name: Tail production logs
+    name: Tail production logs + diagnostics
     runs-on: ubuntu-latest
     steps:
       - name: Install cloudflared
@@ -40,6 +40,20 @@ jobs:
             ProxyCommand cloudflared access ssh --hostname %h --service-token-id ${{ secrets.CF_ACCESS_CLIENT_ID }} --service-token-secret ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           EOF
 
-      - name: Tail app logs
+      - name: App logs + upload dir diagnostics
         run: |
-          ssh ${{ env.SSH_HOST }} 'export PATH=/usr/local/bin:$PATH; docker logs rodinka_app --tail ${{ inputs.lines }} 2>&1'
+          ssh ${{ env.SSH_HOST }} 'export PATH=/usr/local/bin:$PATH
+          echo "=== CONTAINER STATUS ==="
+          docker ps --filter "name=rodinka_app" --format "{{.Names}} {{.Status}}"
+
+          echo ""
+          echo "=== UPLOAD DIR ==="
+          docker exec rodinka_app ls -la /app/uploads/ 2>&1 || echo "FAILED"
+
+          echo ""
+          echo "=== UPLOAD DIR WRITE TEST ==="
+          docker exec rodinka_app sh -c "echo test > /app/uploads/test_write.txt && rm /app/uploads/test_write.txt && echo WRITABLE" 2>&1 || echo "NOT WRITABLE"
+
+          echo ""
+          echo "=== LAST ${{ inputs.lines }} LOG LINES ==="
+          docker logs rodinka_app --tail ${{ inputs.lines }} 2>&1'
