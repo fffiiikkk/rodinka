@@ -777,9 +777,26 @@ function MonthGrid({ events, availability, layer, currentDate }: { events: Event
                           paddingRight: '4px',
                         }}
                       >
-                        <span className={`truncate ${!startsHere ? 'opacity-60' : ''}`}>
+                        <span className={`truncate flex-1 ${!startsHere ? 'opacity-60' : ''}`}>
                           {startsHere ? `${safeIcon(event.eventType?.icon)} ${event.title}` : `↳ ${event.title}`}
                         </span>
+                        {startsHere && event.participants.length > 0 && (
+                          <span className="flex items-center gap-[2px] shrink-0 mx-1">
+                            {event.participants.slice(0, 3).map((p) => (
+                              <span
+                                key={p.userId}
+                                title={p.name}
+                                className="w-3.5 h-3.5 rounded-full text-white text-[7px] font-bold flex items-center justify-center ring-1 ring-white/50 shrink-0"
+                                style={{ background: p.role === 'KID' ? '#8b5cf6' : '#0ea5e9' }}
+                              >
+                                {p.name.slice(0, 1).toUpperCase()}
+                              </span>
+                            ))}
+                            {event.participants.length > 3 && (
+                              <span className="text-[8px] font-bold opacity-70">+{event.participants.length - 3}</span>
+                            )}
+                          </span>
+                        )}
                         {!endsHere && (
                           <span className="ml-auto shrink-0 text-base leading-none opacity-70 pr-0.5">›</span>
                         )}
@@ -822,19 +839,40 @@ function MonthGrid({ events, availability, layer, currentDate }: { events: Event
                         {format(day, 'd')}
                       </span>
                       <div className="space-y-0.5">
-                        {dayEvents.map((e) => (
-                          <a
-                            key={e.id}
-                            href={`/event/${(e as any).originalId ?? e.id}`}
-                            className="block text-[10px] px-1 py-0.5 rounded truncate font-medium leading-tight"
-                            style={{
-                              background: (e.eventType?.color ?? e.colorOverride ?? '#a3a3a3') + '30',
-                              color: e.eventType?.color ?? '#475569',
-                            }}
-                          >
-                            {safeIcon(e.eventType?.icon, '•')} {e.title}
-                          </a>
-                        ))}
+                        {dayEvents.map((e) => {
+                          const color = e.eventType?.color ?? e.colorOverride ?? '#a3a3a3';
+                          return (
+                            <a
+                              key={e.id}
+                              href={`/event/${(e as any).originalId ?? e.id}`}
+                              className="block text-[10px] px-1 py-0.5 rounded font-medium leading-tight"
+                              style={{ background: color + '30', color }}
+                            >
+                              <span className="flex items-center gap-0.5 min-w-0">
+                                <span className="truncate flex-1">
+                                  {safeIcon(e.eventType?.icon, '•')} {e.title}
+                                </span>
+                                {e.participants.length > 0 && (
+                                  <span className="flex items-center gap-[2px] shrink-0 ml-0.5">
+                                    {e.participants.slice(0, 3).map((p) => (
+                                      <span
+                                        key={p.userId}
+                                        title={p.name}
+                                        className="w-3 h-3 rounded-full text-white text-[7px] font-bold flex items-center justify-center ring-1 ring-white/50 shrink-0"
+                                        style={{ background: p.role === 'KID' ? '#8b5cf6' : '#0ea5e9' }}
+                                      >
+                                        {p.name.slice(0, 1).toUpperCase()}
+                                      </span>
+                                    ))}
+                                    {e.participants.length > 3 && (
+                                      <span className="text-[7px] font-bold opacity-70">+{e.participants.length - 3}</span>
+                                    )}
+                                  </span>
+                                )}
+                              </span>
+                            </a>
+                          );
+                        })}
                       </div>
                       <BirthdayDots items={layer.filter((l) => l.date === dayStr)} />
                       <AvailabilityDots items={dayAvailItems} />
