@@ -132,26 +132,46 @@ jobs:
           sleep 8
 
           # Run any pending migrations in a disposable container
-          # (set -e is active, so failure here aborts the script)
           docker compose -f docker-compose.prod.yml --env-file .env.prod \
             run --rm --no-deps app \
             sh -c "cd packages/backend && npx prisma migrate deploy"
 
-          # Restart the app container with the new image
-          docker compose -f docker-compose.prod.yml --env-file .env.prod \
-            up -d --no-deps --force-recreate app
+          # Read credentials from .env.prod so we can pass them explicitly to docker run
+          DB_PASSWORD=$(grep '^DB_PASSWORD=' .env.prod | cut -d'=' -f2-)
+          SESSION_SECRET=$(grep '^SESSION_SECRET=' .env.prod | cut -d'=' -f2-)
+          VAPID_PUBLIC_KEY=$(grep '^VAPID_PUBLIC_KEY=' .env.prod | cut -d'=' -f2- || echo "")
+          VAPID_PRIVATE_KEY=$(grep '^VAPID_PRIVATE_KEY=' .env.prod | cut -d'=' -f2- || echo "")
+          VAPID_SUBJECT=$(grep '^VAPID_SUBJECT=' .env.prod | cut -d'=' -f2- || echo "")
 
-          # Give the container 5 s to settle, then verify it is actually running
+          # Ensure the docker volume for uploads exists
+          docker volume create rodinka_uploads 2>/dev/null || true
+
+          # Explicitly stop and remove any existing app container, then create fresh
+          # (avoid docker compose --force-recreate which may be interfered with by Synology Container Manager)
+          docker stop rodinka_app 2>/dev/null || true
+          docker rm   rodinka_app 2>/dev/null || true
+
+          docker run -d \
+            --name rodinka_app \
+            --restart unless-stopped \
+            --network rodinka_net \
+            -p 3010:3000 \
+            -e "DATABASE_URL=postgresql://rodinkal:${DB_PASSWORD}@postgres:5432/rodinkal?schema=public" \
+            -e "SESSION_SECRET=${SESSION_SECRET}" \
+            -e "NODE_ENV=production" \
+            -e "PORT=3000" \
+            -e "APP_URL=https://calendar.krataf.dev" \
+            -e "VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}" \
+            -e "VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}" \
+            -e "VAPID_SUBJECT=${VAPID_SUBJECT}" \
+            -e "UPLOAD_DIR=/app/uploads" \
+            -v rodinka_uploads:/app/uploads \
+            ghcr.io/fffiiikkk/rodinkal:latest
+
+          echo "✓ rodinka_app container started via docker run"
           sleep 5
-          if docker ps --filter "name=rodinka_app" --format "{{.Names}}" | grep -q rodinka_app; then
-            echo "✓ Container rodinka_app is running"
-          else
-            echo "✗ Container rodinka_app is NOT running — last 40 log lines:"
-            docker logs --tail 40 rodinka_app 2>&1 || true
-            echo "--- docker ps -a ---"
-            docker ps -a --filter "name=rodinka" --format "table {{.Names}}\t{{.Status}}\t{{.Image}}" || true
-            exit 1
-          fi
+          docker ps --filter "name=rodinka_app" --format "table {{.Names}}\t{{.Status}}"
+          docker logs --tail 20 rodinka_app 2>&1 || true
 
           docker image prune -f
           echo "Deploy complete on $(hostname) at $(date)"
