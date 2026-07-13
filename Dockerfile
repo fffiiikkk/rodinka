@@ -36,7 +36,7 @@ RUN npm run build --workspace=packages/backend
 # ── Production stage ────────────────────────────────────
 FROM node:20-alpine AS production
 
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init openssl
 
 WORKDIR /app
 
@@ -54,10 +54,14 @@ COPY --from=builder /workspace/packages/backend/dist ./packages/backend/dist
 # Copy Prisma generated client (hoisted to root node_modules in workspace)
 COPY --from=builder /workspace/node_modules/.prisma ./node_modules/.prisma
 
-COPY packages/backend/prisma/schema.prisma ./packages/backend/prisma/schema.prisma
+# Copy full prisma directory: schema + all migrations (needed for prisma migrate deploy)
+COPY packages/backend/prisma ./packages/backend/prisma
 
-# Create upload directory
-RUN mkdir -p /app/uploads/photos /app/uploads/attachments
+# Create upload directory and fix permissions so the node user can write to Prisma engines
+RUN mkdir -p /app/uploads/photos /app/uploads/attachments && \
+    chown -R node:node /app/uploads && \
+    chown -R node:node /app/node_modules/.prisma 2>/dev/null || true && \
+    chown -R node:node /app/node_modules/@prisma 2>/dev/null || true
 
 ARG APP_VERSION=local
 ENV APP_VERSION=$APP_VERSION \
