@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 
-interface UserRow {
+export interface UserRow {
   id: string;
   name: string;
+  nickname?: string | null;
   role: string;
+  dateOfBirth?: string | null;
+  relationship?: string | null;
   isActive: boolean;
 }
 

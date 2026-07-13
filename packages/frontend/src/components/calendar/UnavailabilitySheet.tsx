@@ -11,6 +11,7 @@
 import React, { useState, useEffect } from 'react';
 import { format, addDays } from 'date-fns';
 import { UserX, UserCheck, CalendarCheck } from 'lucide-react';
+import { UserPickerRow } from '../ui/UserPickerRow.js';
 import DatePicker from '../ui/DatePicker.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useCreateAvailability, useUpdateAvailability } from '../../hooks/useAvailability.js';
@@ -22,6 +23,10 @@ export type AvailabilityMode = 'unavailable' | 'available' | 'external';
 interface AdminUser {
   id: string;
   name: string;
+  nickname?: string | null;
+  role?: string;
+  dateOfBirth?: string | null;
+  relationship?: string | null;
 }
 
 interface Props {
@@ -246,12 +251,12 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode,
               </span>
             )}
           </label>
-          <div className="space-y-1 rounded-xl border border-border overflow-hidden">
+          <div className="space-y-0 rounded-xl border border-border overflow-hidden">
             {allSelectableUsers.map((u) => (
               <label
                 key={u.id}
                 className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors ${
-                  targetUserIds.includes(u.id) ? 'bg-primary/8 text-primary' : 'hover:bg-surface-raised text-ink'
+                  targetUserIds.includes(u.id) ? 'bg-primary/8' : 'hover:bg-surface-raised'
                 }`}
               >
                 <input
@@ -260,7 +265,7 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode,
                   onChange={() => toggleUser(u.id)}
                   className="w-4 h-4 accent-primary shrink-0"
                 />
-                <span className="text-sm font-medium">{u.name}</span>
+                <UserPickerRow u={{ ...u, role: u.role ?? 'PARENT' }} />
               </label>
             ))}
           </div>

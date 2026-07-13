@@ -11,42 +11,10 @@ import { useToast } from '../ui/Toast.js';
 import TimePicker from '../ui/TimePicker.js';
 import DatePicker from '../ui/DatePicker.js';
 import RecurrenceEditor from './RecurrenceEditor.js';
+import { UserPickerRow } from '../ui/UserPickerRow.js';
 
 type TransportMode = 'none' | 'user' | 'external' | 'self';
 type TransportDirection = 'BOTH' | 'THERE' | 'BACK';
-
-const ROLE_LABEL_CS: Record<string, string> = {
-  PARENT:      'rodič',
-  GRANDPARENT: 'prarodič',
-  RELATIVE:    'příbuzný',
-  KID:         'dítě',
-  GUEST:       'host',
-};
-
-function userAge(dateOfBirth: string | null | undefined): number | null {
-  if (!dateOfBirth) return null;
-  const dob = new Date(dateOfBirth);
-  const today = new Date();
-  let age = today.getFullYear() - dob.getFullYear();
-  const m = today.getMonth() - dob.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-  return age;
-}
-
-/** Single user row used in participant + transport pickers */
-function UserPickerRow({ u }: { u: any }) {
-  const age = userAge(u.dateOfBirth);
-  const label = ROLE_LABEL_CS[u.role] ?? u.role;
-  const displayName = u.nickname ? `${u.nickname} (${u.name})` : u.name;
-  return (
-    <span className="flex flex-col min-w-0">
-      <span className="text-xs font-semibold text-ink truncate leading-tight">{displayName}</span>
-      <span className="text-[10px] text-ink-faint leading-tight truncate">
-        {label}{age !== null ? ` · ${age} let` : ''}{u.relationship ? ` · ${u.relationship}` : ''}
-      </span>
-    </span>
-  );
-}
 
 interface OccurrenceSlot {
   startDate: string;
@@ -134,7 +102,7 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
   const [transportDirection, setTransportDirection] = useState<TransportDirection>(
     (initialValues?.transport?.direction as TransportDirection | null) ?? 'BOTH',
   );
-  // null = default (assumed covers supervision), false = does NOT cover
+  // null = není nutné (default), true = zajistí, false = nezajistí
   const [transportCoversSupervision, setTransportCoversSupervision] = useState<boolean | null>(
     initialValues?.transport?.coversSupervision ?? null,
   );
@@ -623,24 +591,24 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
                       <label className="label text-[10px]">Hlídání při aktivitě</label>
                       <div className="flex gap-1">
                         {([
-                          { value: null,  label: '✅ Zajistí (výchozí)' },
-                          { value: false, label: '❌ Nezajistí' },
-                        ] as { value: boolean | null; label: string }[]).map(({ value, label }) => (
+                          { value: null,  label: '—  Není nutné', color: 'text-ink-muted' },
+                          { value: true,  label: '✅ Zajistí',     color: 'text-emerald-600' },
+                          { value: false, label: '❌ Nezajistí',  color: 'text-red-500' },
+                        ] as { value: boolean | null; label: string; color: string }[]).map(({ value, label, color }) => (
                           <button
                             key={String(value)}
                             type="button"
                             onClick={() => setTransportCoversSupervision(value)}
                             className={`flex-1 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
                               transportCoversSupervision === value
-                                ? 'border-primary bg-primary/10 text-primary'
-                                : 'border-border text-ink-muted hover:border-primary/40'
+                                ? `border-primary bg-primary/10 text-primary`
+                                : `border-border ${color} hover:border-primary/40`
                             }`}
                           >
                             {label}
                           </button>
                         ))}
                       </div>
-                      <p className="text-[10px] text-ink-faint mt-1">Obecně při aktivitě hlídání není třeba. Pokud ano — označ.</p>
                     </div>
                   )}
                 </>

@@ -159,10 +159,20 @@ export default function EventDetailPage() {
                   {event.transport.direction === 'THERE' ? '→ Jen tam' : '← Jen zpět'}
                 </span>
               )}
-              {/* Supervision badge — only show when explicitly false */}
+              {/* Supervision badge */}
+              {event.transport.coversSupervision === true && (
+                <span className="inline-block mt-0.5 ml-1 text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">
+                  ✅ hlídání zajistí
+                </span>
+              )}
               {event.transport.coversSupervision === false && (
                 <span className="inline-block mt-0.5 ml-1 text-[10px] font-semibold bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full">
                   ❌ hlídání nezajistí
+                </span>
+              )}
+              {event.transport.coversSupervision === null && (
+                <span className="inline-block mt-0.5 ml-1 text-[10px] font-semibold bg-surface-raised text-ink-faint px-1.5 py-0.5 rounded-full">
+                  — hlídání není nutné
                 </span>
               )}
             </div>
