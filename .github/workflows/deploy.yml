@@ -136,20 +136,23 @@ jobs:
           echo "Deploy complete on $(hostname) at $(date)"
           SSHEOF
 
-      # ── Health check — poll until app responds or timeout after 60 s ──────
+      # ── Health check — poll until app responds or timeout after 120 s ─────
       - name: Health check
         run: |
-          echo "Waiting for app to start..."
-          for i in $(seq 1 12); do
+          echo "Waiting 30 s for app to start (migrations + boot time)..."
+          sleep 30
+          echo "Polling health endpoint..."
+          for i in $(seq 1 18); do
             result=$(ssh ${{ env.SSH_HOST }} \
               "curl -sf http://localhost:3010/health 2>/dev/null" || true)
             if [ -n "$result" ]; then
               echo "✓ Deploy OK: $result"
               exit 0
             fi
-            echo "  Attempt $i/12 — not ready yet, waiting 5 s..."
+            echo "  Attempt $i/18 — not ready yet, waiting 5 s..."
             sleep 5
           done
-          echo "✗ Health check failed after 60 s"
-          ssh ${{ env.SSH_HOST }} "docker logs --tail 50 rodinka_app" || true
+          echo "✗ Health check failed after 120 s — fetching container logs..."
+          ssh ${{ env.SSH_HOST }} \
+            "export PATH=/usr/local/bin:\$PATH; docker logs --tail 60 rodinka_app 2>&1" || true
           exit 1
