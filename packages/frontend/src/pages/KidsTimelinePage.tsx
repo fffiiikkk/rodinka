@@ -78,14 +78,20 @@ interface ConflictPair {
   eventB: Event;
 }
 
+/** Canonical ID: recurring occurrences carry an originalId; use that so two kids
+ *  holding the same occurrence are recognised as the same event. */
+function canonicalId(e: Event): string {
+  return (e as any).originalId ?? e.id;
+}
+
 function findConflictPairs(kidEvents: Event[][]): ConflictPair[] {
   const pairs: ConflictPair[] = [];
   for (let i = 0; i < kidEvents.length; i++) {
     for (let j = i + 1; j < kidEvents.length; j++) {
       for (const ea of kidEvents[i]!) {
         for (const eb of kidEvents[j]!) {
-          // Same event shared by both kids — not a conflict
-          if (ea.id === eb.id) continue;
+          // Same event (or same recurring occurrence) shared by both kids — not a conflict
+          if (canonicalId(ea) === canonicalId(eb)) continue;
           if (overlaps(ea, eb)) {
             pairs.push({ kidIdxA: i, kidIdxB: j, eventA: ea, eventB: eb });
           }
