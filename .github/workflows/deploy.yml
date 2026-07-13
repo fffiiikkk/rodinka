@@ -160,6 +160,15 @@ jobs:
           docker stop rodinka_app 2>/dev/null || true
           docker rm   rodinka_app 2>/dev/null || true
 
+          # Resolve any previously-failed migrations so prisma migrate deploy can proceed.
+          # This is idempotent — if there are no failed migrations the command exits cleanly.
+          echo "Resolving any failed migrations..."
+          docker run --rm \
+            --network rodinka_net \
+            -e "DATABASE_URL=postgresql://rodinkal:${DB_PASSWORD}@postgres:5432/rodinkal?schema=public" \
+            ghcr.io/fffiiikkk/rodinkal:latest \
+            sh -c "cd /app/packages/backend && npx prisma migrate resolve --rolled-back 20260713_fix_event_type_icons 2>&1 || true"
+
           docker run -d \
             --name rodinka_app \
             --restart unless-stopped \
