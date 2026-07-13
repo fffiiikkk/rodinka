@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { Camera, Moon, Sun, Monitor, LogOut, Loader2 } from 'lucide-react';
+import { Camera, Moon, Sun, Monitor, LogOut, Loader2, Bell, BellOff, BellRing } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useMyBadges } from '../hooks/useBadges.js';
+import { usePushNotifications } from '../hooks/usePushNotifications.js';
 import { api } from '../lib/api.js';
 import { useTheme } from '../theme/ThemeProvider.js';
 import { THEMES } from '@rodinkal/shared';
@@ -63,6 +64,7 @@ export default function ProfilePage() {
   const qc = useQueryClient();
   const { theme, colorMode, setTheme, setColorMode } = useTheme();
   const { data: badges } = useMyBadges();
+  const push = usePushNotifications();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [saving, setSaving] = useState(false);
@@ -293,6 +295,68 @@ export default function ProfilePage() {
           ))}
         </div>
       </div>
+
+      {/* Push notifications */}
+      {push.supported && (
+        <div className="card p-4 space-y-3">
+          <h3 className="font-bold text-ink flex items-center gap-2">
+            <Bell size={18} className="text-primary" /> Notifikace
+          </h3>
+
+          {push.permission === 'denied' ? (
+            <div className="flex items-start gap-3 bg-warning/10 border border-warning/30 rounded-xl p-3">
+              <BellOff size={20} className="text-warning shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-ink">Notifikace jsou zablokované</p>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  Povolení jsi odmítl/a v prohlížeči. Aby fungovaly, musíš je ručně povolit v nastavení prohlížeče
+                  — ikona zámku v adresním řádku → Notifikace → Povolit.
+                </p>
+              </div>
+            </div>
+          ) : push.subscribed ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 bg-success/10 border border-success/30 rounded-xl p-3">
+                <BellRing size={20} className="text-success shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-success">Notifikace jsou aktivní</p>
+                  <p className="text-xs text-ink-muted mt-0.5">Dostaneš připomínku před každou událostí.</p>
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  await push.unsubscribe();
+                  toast('Notifikace vypnuty', 'info');
+                }}
+                disabled={push.loading}
+                className="w-full py-2 rounded-xl border border-danger/30 text-danger text-sm font-semibold flex items-center justify-center gap-2 hover:bg-danger/5 transition-colors disabled:opacity-50"
+              >
+                {push.loading ? <Loader2 size={16} className="animate-spin" /> : <BellOff size={16} />}
+                Vypnout notifikace
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-ink-muted">
+                Zapni push notifikace a dostaneš připomínku před každou aktivitou — i když máš aplikaci zavřenou.
+              </p>
+              <button
+                onClick={async () => {
+                  const result = await push.subscribe();
+                  if (result === 'ok') toast('Notifikace zapnuty ✓', 'success');
+                  else if (result === 'denied') toast('Povolení zamítnuto', 'error');
+                  else toast('Nepodařilo se zapnout notifikace', 'error');
+                }}
+                disabled={push.loading}
+                className="btn-primary w-full flex items-center justify-center gap-2"
+              >
+                {push.loading ? <Loader2 size={16} className="animate-spin" /> : <Bell size={16} />}
+                Zapnout notifikace
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Logout */}
       <button

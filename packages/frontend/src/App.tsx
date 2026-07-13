@@ -8,6 +8,7 @@ import { ToastProvider } from './components/ui/Toast.js';
 import LoadingScreen from './components/ui/LoadingScreen.js';
 import BottomNav from './components/layout/BottomNav.js';
 import TopBar from './components/layout/TopBar.js';
+import PushPrompt from './components/ui/PushPrompt.js';
 
 const LoginPage = lazy(() => import('./pages/LoginPage.js'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage.js'));
@@ -69,6 +70,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
               </AnimatedContent>
             </main>
             <BottomNav />
+            <PushPrompt />
           </div>
         </BadgeToastProvider>
       </ToastProvider>

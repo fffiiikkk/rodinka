@@ -28,4 +28,19 @@ router.delete('/push/unsubscribe', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Return VAPID public key so the frontend can create a push subscription
+router.get('/push/vapid-key', (_req, res) => {
+  const key = notificationService.getVapidPublicKey();
+  res.json({ publicKey: key || null });
+});
+
+// Check if current user has an active push subscription
+router.get('/push/status', async (req, res, next) => {
+  try {
+    const { prisma } = await import('../db.js');
+    const count = await prisma.pushSubscription.count({ where: { userId: req.user!.id } });
+    res.json({ subscribed: count > 0 });
+  } catch (e) { next(e); }
+});
+
 export default router;
