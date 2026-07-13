@@ -132,6 +132,7 @@ jobs:
           sleep 8
 
           # Run any pending migrations in a disposable container
+          # (set -e is active, so failure here aborts the script)
           docker compose -f docker-compose.prod.yml --env-file .env.prod \
             run --rm --no-deps app \
             sh -c "cd packages/backend && npx prisma migrate deploy"
@@ -139,6 +140,18 @@ jobs:
           # Restart the app container with the new image
           docker compose -f docker-compose.prod.yml --env-file .env.prod \
             up -d --no-deps --force-recreate app
+
+          # Give the container 5 s to settle, then verify it is actually running
+          sleep 5
+          if docker ps --filter "name=rodinka_app" --format "{{.Names}}" | grep -q rodinka_app; then
+            echo "✓ Container rodinka_app is running"
+          else
+            echo "✗ Container rodinka_app is NOT running — last 40 log lines:"
+            docker logs --tail 40 rodinka_app 2>&1 || true
+            echo "--- docker ps -a ---"
+            docker ps -a --filter "name=rodinka" --format "table {{.Names}}\t{{.Status}}\t{{.Image}}" || true
+            exit 1
+          fi
 
           docker image prune -f
           echo "Deploy complete on $(hostname) at $(date)"
