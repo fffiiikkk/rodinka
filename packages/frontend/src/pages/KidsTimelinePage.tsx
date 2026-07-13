@@ -43,8 +43,10 @@ function eventsForUserOnDay(events: Event[], userId: string, dayStr: string): Ev
     if (e.status === 'CANCELLED') return false;
     const startDay = e.start.slice(0, 10);
     const endDay = e.end.slice(0, 10);
+    // Show event only if the user is an explicit participant or the transport person.
+    // Creating the event does NOT automatically put it in the creator's column —
+    // they would need to add themselves as a participant.
     const isUser =
-      e.createdById === userId ||
       e.participants.some((p) => p.userId === userId) ||
       (e.transport?.userId === userId);
     if (!isUser) return false;
