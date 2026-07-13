@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ChevronRight, Plus, UserX, UserCheck, CalendarCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, UserX, UserCheck, CalendarCheck, SlidersHorizontal, X, RotateCcw } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents.js';
 import { useAvailability, useDeleteAvailability } from '../hooks/useAvailability.js';
 import { useAuth } from '../hooks/useAuth.js';
-import { monthRange, weekRange, addMonths, addWeeks, addDays, format, isToday, parseISO } from '../lib/dates.js';
-import { eachDayOfInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { monthRange, weekRange, addMonths, addWeeks, parseISO } from '../lib/dates.js';
+import { eachDayOfInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, addDays, isToday } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import Sheet from '../components/ui/Sheet.js';
 import EventForm from '../components/events/EventForm.js';
@@ -269,6 +269,153 @@ function WeekTimeGrid({ events, weekStart, availability }: { events: Event[]; we
 
 type CalendarView = 'month' | 'week' | 'agenda';
 
+// ─── Calendar filter ──────────────────────────────────────────────────────────
+
+const FILTER_LS_KEY = 'calendar-filter';
+
+interface CalendarFilter {
+  userIds: string[];       // empty = all users
+  eventTypeIds: string[];  // empty = all types
+}
+
+const EMPTY_FILTER: CalendarFilter = { userIds: [], eventTypeIds: [] };
+
+function loadFilter(): CalendarFilter {
+  try { return JSON.parse(localStorage.getItem(FILTER_LS_KEY) ?? 'null') ?? EMPTY_FILTER; }
+  catch { return EMPTY_FILTER; }
+}
+
+interface FilterUser { id: string; name: string; role: string; photoUrl: string | null }
+interface FilterEventType { id: string; nameCs: string; icon: string; color: string }
+
+function FilterSheet({
+  open, onClose, filter, setFilter, users, eventTypes,
+}: {
+  open: boolean;
+  onClose: () => void;
+  filter: CalendarFilter;
+  setFilter: (f: CalendarFilter) => void;
+  users: FilterUser[];
+  eventTypes: FilterEventType[];
+}) {
+  const toggleUser = (id: string) =>
+    setFilter({
+      ...filter,
+      userIds: filter.userIds.includes(id)
+        ? filter.userIds.filter((x) => x !== id)
+        : [...filter.userIds, id],
+    });
+
+  const toggleType = (id: string) =>
+    setFilter({
+      ...filter,
+      eventTypeIds: filter.eventTypeIds.includes(id)
+        ? filter.eventTypeIds.filter((x) => x !== id)
+        : [...filter.eventTypeIds, id],
+    });
+
+  const isActive = filter.userIds.length > 0 || filter.eventTypeIds.length > 0;
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Filtr kalendáře">
+      <div className="p-4 space-y-5">
+        {/* Reset */}
+        {isActive && (
+          <button
+            onClick={() => setFilter(EMPTY_FILTER)}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-border text-sm font-semibold text-ink-muted hover:text-ink hover:bg-surface-raised transition-colors"
+          >
+            <RotateCcw size={14} />
+            Zrušit všechny filtry
+          </button>
+        )}
+
+        {/* Users */}
+        {users.length > 0 && (
+          <div>
+            <p className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2">
+              👤 Osoby
+              {filter.userIds.length > 0 && (
+                <span className="ml-2 text-primary normal-case font-bold">
+                  ({filter.userIds.length} z {users.length} vybráno)
+                </span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {users.map((u) => {
+                const on = filter.userIds.includes(u.id);
+                return (
+                  <button
+                    key={u.id}
+                    onClick={() => toggleUser(u.id)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                      on
+                        ? 'bg-primary text-white border-primary shadow-sm'
+                        : 'border-border bg-surface-raised text-ink-muted hover:text-ink hover:border-ink-muted'
+                    }`}
+                  >
+                    {on && <X size={10} />}
+                    {u.name.split(' ')[0]}
+                  </button>
+                );
+              })}
+            </div>
+            {filter.userIds.length > 0 && (
+              <p className="text-[11px] text-ink-faint mt-1.5">
+                Zobrazuji jen akce, kde jsou vybrané osoby jako účastník nebo tvůrce.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Event types */}
+        {eventTypes.length > 0 && (
+          <div>
+            <p className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2">
+              📌 Typy akcí
+              {filter.eventTypeIds.length > 0 && (
+                <span className="ml-2 text-primary normal-case font-bold">
+                  ({filter.eventTypeIds.length} z {eventTypes.length} vybráno)
+                </span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {eventTypes.map((et) => {
+                const on = filter.eventTypeIds.includes(et.id);
+                return (
+                  <button
+                    key={et.id}
+                    onClick={() => toggleType(et.id)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                      on ? 'text-white border-transparent shadow-sm' : 'border-border bg-surface-raised text-ink-muted hover:text-ink'
+                    }`}
+                    style={on ? { background: et.color, borderColor: et.color } : {}}
+                  >
+                    {on && <X size={10} />}
+                    {et.icon} {et.nameCs}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {users.length === 0 && eventTypes.length === 0 && (
+          <p className="text-sm text-ink-muted text-center py-6">
+            V aktuálním období nejsou žádné akce k filtrování.
+          </p>
+        )}
+
+        <button onClick={onClose} className="w-full py-2.5 rounded-xl bg-primary text-white font-bold text-sm">
+          Zavřít
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── View tabs ─────────────────────────────────────────────────────────────────
+
 function ViewTabs({ view, setView }: { view: CalendarView; setView: (v: CalendarView) => void }) {
   const { t } = useTranslation();
   const tabs: { id: CalendarView; label: string }[] = [
@@ -339,13 +486,27 @@ function AgendaView({ events, availability, layer, from, to }: { events: Event[]
 
         return (
           <div key={dayStr}>
-            <div className={`flex items-center gap-3 py-2 sticky top-14 bg-surface z-10 ${isToday(day) ? 'text-primary' : 'text-ink-muted'}`}>
-              <span className={`text-sm font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${isToday(day) ? 'bg-primary text-white' : ''}`}>
+            <div className={`flex items-center gap-3 py-2 sticky top-44 z-10 bg-surface/95 backdrop-blur-sm border-b border-border/50 ${isToday(day) ? 'text-primary' : 'text-ink-muted'}`}>
+              <span
+                className={`text-sm font-black w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                  isToday(day) ? 'bg-primary text-white shadow-sm' : 'bg-surface-raised'
+                }`}
+              >
                 {format(day, 'd')}
               </span>
-              <span className="text-sm capitalize">
-                {format(day, 'EEEE')}
-              </span>
+              <div className="flex-1 min-w-0">
+                <span className={`text-sm font-bold capitalize ${isToday(day) ? 'text-primary' : 'text-ink'}`}>
+                  {format(day, 'EEEE', { locale: cs })}
+                </span>
+                {!isToday(day) && (
+                  <span className="ml-2 text-xs text-ink-faint">
+                    {format(day, 'd. MMMM', { locale: cs })}
+                  </span>
+                )}
+                {isToday(day) && (
+                  <span className="ml-2 text-xs font-bold text-primary/70">Dnes</span>
+                )}
+              </div>
             </div>
             <BirthdayStrip items={dayLayerItems} />
             <AvailabilityStrip items={dayAvailItems} />
@@ -398,20 +559,34 @@ function transportLabel(t: Event['transport']): string | null {
 
 function EventChip({ event }: { event: Event & { originalId?: string; isOccurrence?: boolean } }) {
   const color = event.eventType?.color ?? event.colorOverride ?? '#a3a3a3';
+  const startDay = event.start.slice(0, 10);
+  const endDay = event.end.slice(0, 10);
+  const isMultiDay = endDay > startDay;
   const startTime = event.allDay ? '' : new Date(event.start).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
   const transport = transportLabel(event.transport);
-  // Recurring occurrences have a composite ID — navigate to the original series
   const navId = event.originalId ?? event.id;
   const isRecurring = !!(event.recurrenceRule || event.isOccurrence);
 
   return (
-    <a href={`/event/${navId}`} className="flex items-center gap-2 bg-surface-raised rounded-lg p-2.5 border border-border hover:shadow-card transition-shadow">
-      <div className="w-1.5 h-full rounded-full shrink-0 self-stretch" style={{ background: color }} />
-      <span className="text-lg">{event.eventType?.icon ?? '📌'}</span>
+    <a
+      href={`/event/${navId}`}
+      className="flex items-center gap-2 rounded-xl p-2.5 border border-border/60 hover:shadow-raised hover:border-border active:scale-[.99] transition-all"
+      style={{
+        borderLeftColor: color,
+        borderLeftWidth: 3,
+        background: color + '0d',
+      }}
+    >
+      <span className="text-lg shrink-0">{event.eventType?.icon ?? '📌'}</span>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm text-ink truncate">{event.title}</p>
         <div className="flex items-center gap-2 text-xs text-ink-muted flex-wrap">
-          {startTime && <span>{startTime}</span>}
+          {startTime && <span className="font-medium">{startTime}</span>}
+          {isMultiDay && (
+            <span className="font-bold" style={{ color }}>
+              → {format(new Date(event.end), 'd.M.')}
+            </span>
+          )}
           {event.location && <span>📍 {event.location}</span>}
           {isRecurring && <span className="text-primary/70">🔄</span>}
           {transport && (
@@ -420,7 +595,7 @@ function EventChip({ event }: { event: Event & { originalId?: string; isOccurren
         </div>
       </div>
       {event.status === 'PROPOSED' && (
-        <span className="text-xs bg-warning/20 text-warning font-semibold px-1.5 py-0.5 rounded shrink-0">čeká</span>
+        <span className="text-xs bg-warning/20 text-warning font-bold px-1.5 py-0.5 rounded-full shrink-0">čeká</span>
       )}
     </a>
   );
@@ -569,11 +744,17 @@ function MonthGrid({ events, availability, layer, currentDate }: { events: Event
                   return (
                     <div
                       key={dayStr}
-                      className={`bg-surface min-h-[60px] p-1 relative ${!isCurrentMonth ? 'opacity-40' : ''} ${hasUnavail ? 'ring-1 ring-inset ring-danger/20' : ''}`}
+                      className={`min-h-[60px] p-1 relative transition-colors ${
+                        isToday(day)
+                          ? 'bg-primary/6 ring-1 ring-inset ring-primary/20'
+                          : 'bg-surface'
+                      } ${!isCurrentMonth ? 'opacity-40' : ''} ${hasUnavail ? 'ring-1 ring-inset ring-danger/20' : ''}`}
                     >
                       <span
-                        className={`text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full mb-0.5 ${
-                          isToday(day) ? 'bg-primary text-white' : 'text-ink'
+                        className={`font-black flex items-center justify-center rounded-full mb-0.5 ${
+                          isToday(day)
+                            ? 'bg-primary text-white text-[11px] w-6 h-6 shadow-sm'
+                            : 'text-xs w-5 h-5 text-ink'
                         }`}
                       >
                         {format(day, 'd')}
@@ -615,7 +796,15 @@ export default function CalendarPage() {
   const [showUnavail, setShowUnavail] = useState(false);
   const [showAvail, setShowAvail] = useState(false);
   const [showExternal, setShowExternal] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filter, setFilterState] = useState<CalendarFilter>(loadFilter);
   const { user } = useAuth();
+
+  const setFilter = (f: CalendarFilter) => {
+    setFilterState(f);
+    localStorage.setItem(FILTER_LS_KEY, JSON.stringify(f));
+  };
+  const isFilterActive = filter.userIds.length > 0 || filter.eventTypeIds.length > 0;
 
   const isGuardian = user?.role === 'PARENT' || user?.role === 'GRANDPARENT' || user?.role === 'RELATIVE';
 
@@ -636,6 +825,49 @@ export default function CalendarPage() {
   const { data: events = [], isLoading } = useEvents(queryFrom, queryTo);
   const { data: availability = [] } = useAvailability(queryFrom, queryTo);
   const { data: layer = [] } = useCalendarLayer(queryFrom, queryTo);
+
+  // Derive unique users and event types from fetched events (used by FilterSheet picker)
+  const filterUsers = React.useMemo<FilterUser[]>(() => {
+    const map = new Map<string, FilterUser>();
+    for (const e of events) {
+      for (const p of e.participants) {
+        if (!map.has(p.userId)) {
+          map.set(p.userId, { id: p.userId, name: p.name, role: p.role, photoUrl: p.photoUrl ?? null });
+        }
+      }
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  }, [events]);
+
+  const filterEventTypes = React.useMemo<FilterEventType[]>(() => {
+    const map = new Map<string, FilterEventType>();
+    for (const e of events) {
+      if (e.eventType && e.eventTypeId && !map.has(e.eventTypeId)) {
+        map.set(e.eventTypeId, {
+          id: e.eventTypeId,
+          nameCs: (e.eventType as any).nameCs ?? (e.eventType as any).nameEn ?? e.eventType.name ?? '',
+          icon: e.eventType.icon ?? '📌',
+          color: e.eventType.color ?? '#a3a3a3',
+        });
+      }
+    }
+    return [...map.values()].sort((a, b) => a.nameCs.localeCompare(b.nameCs, 'cs'));
+  }, [events]);
+
+  // Apply client-side filter to the fetched events
+  const filteredEvents = React.useMemo(() => {
+    let result = events;
+    if (filter.userIds.length > 0) {
+      result = result.filter((e) =>
+        filter.userIds.includes(e.createdById) ||
+        e.participants.some((p) => filter.userIds.includes(p.userId)),
+      );
+    }
+    if (filter.eventTypeIds.length > 0) {
+      result = result.filter((e) => e.eventTypeId && filter.eventTypeIds.includes(e.eventTypeId));
+    }
+    return result;
+  }, [events, filter]);
 
   const goNext = () => {
     if (view === 'month') setCurrentDate(addMonths(currentDate, 1));
@@ -673,8 +905,42 @@ export default function CalendarPage() {
             <ChevronRight size={22} />
           </button>
         </div>
-        <ViewTabs view={view} setView={setView} />
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <ViewTabs view={view} setView={setView} />
+          </div>
+          <button
+            onClick={() => setShowFilter(true)}
+            className={`relative p-2 rounded-lg transition-colors shrink-0 ${
+              isFilterActive ? 'bg-primary text-white' : 'bg-surface-overlay text-ink-muted hover:text-ink'
+            }`}
+            aria-label="Filtr"
+          >
+            <SlidersHorizontal size={16} />
+            {isFilterActive && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-warning text-[9px] font-bold text-white flex items-center justify-center leading-none">
+                {filter.userIds.length + filter.eventTypeIds.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Filter active banner */}
+      {isFilterActive && (
+        <div className="mx-4 mt-2 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary font-semibold">
+          <SlidersHorizontal size={12} />
+          <span className="flex-1">
+            Filtr aktivní
+            {filter.userIds.length > 0 && ` · ${filter.userIds.length} ${filter.userIds.length === 1 ? 'osoba' : filter.userIds.length < 5 ? 'osoby' : 'osob'}`}
+            {filter.eventTypeIds.length > 0 && ` · ${filter.eventTypeIds.length} ${filter.eventTypeIds.length === 1 ? 'typ' : 'typy'}`}
+          </span>
+          <button onClick={() => setFilter(EMPTY_FILTER)} className="flex items-center gap-0.5 hover:opacity-70 transition-opacity">
+            <RotateCcw size={11} />
+            reset
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       <div className="mt-2">
@@ -683,11 +949,11 @@ export default function CalendarPage() {
             {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16 rounded-lg" />)}
           </div>
         ) : view === 'month' ? (
-          <MonthGrid events={events} availability={availability} layer={layer} currentDate={currentDate} />
+          <MonthGrid events={filteredEvents} availability={availability} layer={layer} currentDate={currentDate} />
         ) : view === 'week' ? (
-          <WeekTimeGrid events={events} weekStart={queryFrom} availability={availability} />
+          <WeekTimeGrid events={filteredEvents} weekStart={queryFrom} availability={availability} />
         ) : (
-          <AgendaView events={events} availability={availability} layer={layer} from={queryFrom} to={queryTo} />
+          <AgendaView events={filteredEvents} availability={availability} layer={layer} from={queryFrom} to={queryTo} />
         )}
       </div>
 
@@ -722,9 +988,9 @@ export default function CalendarPage() {
         )}
         {canCreate && (
           <button onClick={() => setShowForm(true)}
-            className="w-14 h-14 bg-primary text-white rounded-full shadow-raised flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+            className="w-14 h-14 bg-gradient-to-br from-primary to-accent text-white rounded-full shadow-raised flex items-center justify-center hover:scale-105 hover:shadow-[0_0_0_8px_rgba(99,102,241,0.15)] active:scale-95 transition-all duration-200"
           >
-            <Plus size={26} />
+            <Plus size={26} strokeWidth={2.5} />
           </button>
         )}
       </div>
@@ -744,6 +1010,15 @@ export default function CalendarPage() {
       <Sheet open={showExternal} onClose={() => setShowExternal(false)} title="Přidat externí výpomoc">
         <UnavailabilitySheet onClose={() => setShowExternal(false)} defaultDate={currentDate} initialMode="external" />
       </Sheet>
+
+      <FilterSheet
+        open={showFilter}
+        onClose={() => setShowFilter(false)}
+        filter={filter}
+        setFilter={setFilter}
+        users={filterUsers}
+        eventTypes={filterEventTypes}
+      />
     </div>
   );
 }

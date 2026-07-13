@@ -8,6 +8,13 @@ version: '3.9'
 # Initial setup / manual:
 #   cd /volume1/docker/rodinka
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# ⚠️  DO NOT add a 'cloudflared' service to this file.
+#     The Cloudflare tunnel is managed as a single shared container on the NAS
+#     (separate from any application). If you start a second cloudflared here,
+#     it will overwrite the shared tunnel ingress rules and break ssh.krataf.dev
+#     (used by training-diary, rodinka, and other apps for CI/CD deployments).
+#     See synology/README-synology.md → "Cloudflare tunnel management".
 
 services:
   app:

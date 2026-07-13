@@ -41,14 +41,16 @@ export default function TopBar() {
       )}
 
       {/* Main bar — frosted glass */}
-      <div className="bg-surface/85 backdrop-blur-xl border-b border-border/60">
+      <div className="bg-surface/90 backdrop-blur-xl relative">
+        {/* Gradient bottom accent line */}
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
         <div className="flex items-center justify-between px-4 h-14 max-w-2xl mx-auto">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 select-none group">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+            <div className="w-9 h-9 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-raised group-hover:scale-105 group-hover:shadow-raised transition-all">
               <span className="text-white text-base leading-none">📅</span>
             </div>
-            <span className="hidden sm:block font-extrabold text-base text-gradient">
+            <span className="hidden sm:block font-black text-base text-gradient tracking-tight">
               {t('app.name')}
             </span>
           </Link>

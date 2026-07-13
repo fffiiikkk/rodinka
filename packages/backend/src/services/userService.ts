@@ -74,6 +74,63 @@ export const userService = {
     return users.map(serializeUser);
   },
 
+  /**
+   * Returns the kids visible to the given viewer.
+   * - PARENT/admin → all active KIDs
+   * - Other roles (GRANDPARENT, RELATIVE, GUEST) → only their assigned watchedKids,
+   *   falling back to all kids if none have been assigned yet.
+   */
+  async listKidsForGuardian(viewerId: string) {
+    const viewer = await prisma.user.findUnique({
+      where: { id: viewerId },
+      select: {
+        role: true,
+        watchedKids: { where: { role: 'KID', isActive: true }, select: SELECT },
+      } as any,
+    }) as any;
+
+    if (!viewer) return [];
+
+    // Parents see everything
+    if (viewer.role === 'PARENT') {
+      return this.listByRole('KID');
+    }
+
+    // Non-parents: return their assigned kids, or all kids if none assigned yet
+    const assigned: any[] = viewer.watchedKids ?? [];
+    if (assigned.length > 0) {
+      return assigned.map(serializeUser);
+    }
+    // No assignment configured → show all kids (safe default)
+    return this.listByRole('KID');
+  },
+
+  /**
+   * Admin: set exactly which kids a guardian watches.
+   * Pass an empty array to clear (shows all kids again).
+   */
+  async setWatchedKids(guardianId: string, kidIds: string[]) {
+    await (prisma.user as any).update({
+      where: { id: guardianId },
+      data: {
+        watchedKids: {
+          set: kidIds.map((id) => ({ id })),
+        },
+      },
+    });
+  },
+
+  /**
+   * Returns the watched kid IDs for a given user (empty = no restriction).
+   */
+  async getWatchedKidIds(userId: string): Promise<string[]> {
+    const user = await (prisma.user as any).findUnique({
+      where: { id: userId },
+      select: { watchedKids: { select: { id: true } } },
+    }) as { watchedKids: { id: string }[] } | null;
+    return user?.watchedKids.map((k: any) => k.id) ?? [];
+  },
+
   async listActive() {
     const users = await prisma.user.findMany({
       where: { isActive: true, username: { not: 'system' } },

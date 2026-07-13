@@ -110,6 +110,11 @@ model User {
   // Impersonation: who is the admin impersonating this user?
   impersonatedById  String?
 
+  // Guardian-to-kid assignments: which kids does this guardian watch in the kids timeline.
+  // If a guardian has no assignments, all kids are shown (unrestricted default).
+  watchedKids        User[] @relation("GuardianKids")
+  watchedByGuardians User[] @relation("GuardianKids")
+
   createdEvents         Event[]              @relation("EventCreator")
   transportEvents       Event[]              @relation("EventTransport")
   participantIn         EventParticipant[]

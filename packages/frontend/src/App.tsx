@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeProvider } from './theme/ThemeProvider.js';
 import { useAuth } from './hooks/useAuth.js';
 import { BadgeToastProvider } from './components/badges/BadgeToastProvider.js';
@@ -34,6 +35,23 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AnimatedContent({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 function AppShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const theme = (user?.theme ?? 'klasika') as any;
@@ -46,7 +64,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col min-h-dvh">
             <TopBar />
             <main className="flex-1 pb-nav">
-              {children}
+              <AnimatedContent>
+                {children}
+              </AnimatedContent>
             </main>
             <BottomNav />
           </div>

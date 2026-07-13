@@ -69,10 +69,20 @@ router.post('/me/ics-token/regenerate', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// Family members list — available to all authenticated users (returns kids for timeline page)
+// All active users — for the timeline column picker (all authenticated roles can call this)
+router.get('/active', async (req, res, next) => {
+  try {
+    const users = await userService.listActive();
+    res.json({ users });
+  } catch (e) { next(e); }
+});
+
+// Family members list — returns kids visible to the requesting user.
+// PARENT sees all kids; other roles see only their assigned watchedKids
+// (falls back to all kids if no assignments have been configured yet).
 router.get('/family', async (req, res, next) => {
   try {
-    const kids = await userService.listByRole('KID');
+    const kids = await userService.listKidsForGuardian(req.user!.id);
     res.json({ members: kids });
   } catch (e) { next(e); }
 });
@@ -110,6 +120,30 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
     const data = AdminUpdateUserSchema.parse(req.body);
     const user = await userService.adminUpdate(req.params['id'] as string, data, req.user!.id);
     res.json({ user });
+  } catch (e) { next(e); }
+});
+
+// Admin: set which kids a guardian watches in the kids timeline.
+// Pass { kidIds: string[] } — empty array removes all restrictions (shows all kids).
+router.put('/:id/watched-kids', requireAdmin, async (req, res, next) => {
+  try {
+    const guardianId = req.params['id'] as string;
+    const { kidIds } = req.body as { kidIds: string[] };
+    if (!Array.isArray(kidIds)) {
+      res.status(400).json({ error: 'kidIds must be an array', code: 'VALIDATION_ERROR' });
+      return;
+    }
+    await userService.setWatchedKids(guardianId, kidIds);
+    const updated = await userService.getWatchedKidIds(guardianId);
+    res.json({ ok: true, watchedKidIds: updated });
+  } catch (e) { next(e); }
+});
+
+// Admin: get current watched kid IDs for a user
+router.get('/:id/watched-kids', requireAdmin, async (req, res, next) => {
+  try {
+    const kidIds = await userService.getWatchedKidIds(req.params['id'] as string);
+    res.json({ watchedKidIds: kidIds });
   } catch (e) { next(e); }
 });
 

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { UserPlus, Edit, Eye, Trash2, AlertTriangle, X } from 'lucide-react';
+import { UserPlus, Edit, Eye, Trash2, AlertTriangle, X, Baby } from 'lucide-react';
 import { api } from '../../lib/api.js';
 import Avatar from '../ui/Avatar.js';
 import Sheet from '../ui/Sheet.js';
@@ -54,6 +54,8 @@ export default function UsersAdmin() {
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [form, setForm] = useState<EditState | null>(null);
   const [saving, setSaving] = useState(false);
+  // Watched kids for the user being edited
+  const [watchedKidIds, setWatchedKidIds] = useState<string[]>([]);
   // Delete confirmation: null = idle, string = userId pending first confirm, 'deleting' = in progress
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -63,7 +65,10 @@ export default function UsersAdmin() {
     queryFn: () => api.get<{ items: UserRow[] }>('/users?pageSize=100'),
   });
 
-  const openEdit = (user: UserRow) => {
+  // All kids (for the watched-kids picker)
+  const allKids = (data?.items ?? []).filter((u) => u.role === 'KID' && u.isActive);
+
+  const openEdit = async (user: UserRow) => {
     setEditingUser(user);
     setForm({
       name: user.name,
@@ -77,6 +82,19 @@ export default function UsersAdmin() {
       relationship: user.relationship ?? '',
       newPassword: '',
     });
+    // Load current watched-kid assignments for this user
+    try {
+      const res = await api.get<{ watchedKidIds: string[] }>(`/users/${user.id}/watched-kids`);
+      setWatchedKidIds(res.watchedKidIds);
+    } catch {
+      setWatchedKidIds([]);
+    }
+  };
+
+  const toggleWatchedKid = (kidId: string) => {
+    setWatchedKidIds((prev) =>
+      prev.includes(kidId) ? prev.filter((id) => id !== kidId) : [...prev, kidId],
+    );
   };
 
   const closeEdit = () => {
@@ -105,7 +123,13 @@ export default function UsersAdmin() {
         await api.post(`/users/${editingUser.id}/admin-reset-password`, { newPassword: form.newPassword });
       }
 
+      // Save watched-kid assignments (only relevant for non-KID users)
+      if (form.role !== 'KID') {
+        await api.put(`/users/${editingUser.id}/watched-kids`, { kidIds: watchedKidIds });
+      }
+
       await qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      await qc.invalidateQueries({ queryKey: ['family-kids'] });
       toast('Uživatel uložen', 'success');
       closeEdit();
     } catch {
@@ -332,6 +356,54 @@ export default function UsersAdmin() {
               <input className="input w-full" placeholder="nebo napiš vlastní…"
                 value={form.relationship} onChange={(e) => set('relationship', e.target.value)} />
             </div>
+
+            {/* Watched kids — only for non-KID users, only if kids exist */}
+            {form.role !== 'KID' && allKids.length > 0 && (
+              <div>
+                <label className="block text-xs font-semibold text-ink-muted mb-1 flex items-center gap-1.5">
+                  <Baby size={13} />
+                  Viditelné děti v přehledu
+                  <span className="font-normal text-ink-faint ml-1">(nezaškrtnuté = vidí všechny)</span>
+                </label>
+                <div className="flex flex-col gap-1.5">
+                  {allKids.map((kid) => {
+                    const checked = watchedKidIds.includes(kid.id);
+                    return (
+                      <label key={kid.id} className="flex items-center gap-2.5 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 accent-primary rounded shrink-0"
+                          checked={checked}
+                          onChange={() => toggleWatchedKid(kid.id)}
+                        />
+                        <Avatar name={kid.name} photoUrl={kid.photoUrl} size="xs" />
+                        <span className={`text-sm font-medium transition-colors ${checked ? 'text-ink' : 'text-ink-muted'}`}>
+                          {kid.nickname ?? kid.name.split(' ')[0]}
+                          {kid.nickname && <span className="text-xs text-ink-faint ml-1">({kid.name})</span>}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {watchedKidIds.length === 0 && (
+                  <p className="text-[11px] text-ink-faint mt-1.5">
+                    Žádné omezení — uvidí všechny děti v přehledu.
+                  </p>
+                )}
+                {watchedKidIds.length > 0 && (
+                  <p className="text-[11px] text-primary mt-1.5">
+                    Uvidí pouze zaškrtnuté děti ({watchedKidIds.length}/{allKids.length}).
+                    <button
+                      type="button"
+                      onClick={() => setWatchedKidIds([])}
+                      className="ml-2 underline hover:no-underline"
+                    >
+                      Zrušit filtr
+                    </button>
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Active */}
             <label className="flex items-center gap-3 cursor-pointer">

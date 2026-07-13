@@ -77,10 +77,9 @@ export const eventService = {
   }) {
     const where: any = {
       OR: [
-        // Events starting/ending within range
-        { start: { gte: params.from, lte: params.to } },
-        // Events spanning the range
-        { AND: [{ start: { lte: params.from } }, { end: { gte: params.to } }] },
+        // Any event that overlaps with [from, to]: start ≤ to AND end ≥ from
+        // This covers: starts within range, ends within range, spans full range, starts before ends within
+        { AND: [{ start: { lte: params.to } }, { end: { gte: params.from } }] },
         // Recurring series that started before the range — occurrences may fall within
         { AND: [{ recurrenceRule: { not: null } }, { start: { lte: params.to } }] },
       ],

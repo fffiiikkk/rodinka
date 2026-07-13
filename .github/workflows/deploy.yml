@@ -7,7 +7,11 @@ name: Deploy → Synology
 #   CF_ACCESS_CLIENT_ID      — Cloudflare Access Service Token ID
 #   CF_ACCESS_CLIENT_SECRET  — Cloudflare Access Service Token Secret
 #   SYNOLOGY_SSH_KEY         — SSH private key for Synology access
-#   SYNOLOGY_SSH_USER        — SSH user (krataf)
+#   SYNOLOGY_SSH_USER        — SSH user on Synology (e.g. krataf)
+#
+# NOTE: This workflow does NOT rebuild the Docker image.
+# The CI workflow (ci.yml) already builds and pushes ghcr.io/.../rodinkal:latest.
+# This workflow pulls that pre-built image onto the NAS and restarts the app.
 
 on:
   workflow_run:
@@ -21,7 +25,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REGISTRY:   ghcr.io
   IMAGE:      ghcr.io/${{ github.repository_owner }}/rodinkal
   SSH_HOST:   ssh.krataf.dev
   DEPLOY_DIR: /volume1/docker/rodinka
@@ -33,43 +36,14 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
-      packages: write
+      packages: read   # read is enough — we only pull, CI already pushed
 
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
-      # ── Build & push image ─────────────────────────────────────────────────
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Get short SHA
-        id: sha
-        run: |
-          SHA=${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
-          echo "short=$(echo $SHA | cut -c1-7)" >> "$GITHUB_OUTPUT"
-
-      - name: Build & push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ steps.sha.outputs.short }}
-          build-args: |
-            APP_VERSION=1.0.${{ github.run_number }}+${{ steps.sha.outputs.short }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # ── SSH setup via Cloudflare Tunnel ────────────────────────────────────
+      # ── SSH setup via Cloudflare Access ────────────────────────────────────
       - name: Install cloudflared
         run: |
           curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
@@ -89,59 +63,93 @@ jobs:
             User ${{ secrets.SYNOLOGY_SSH_USER }}
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no
-            ProxyCommand cloudflared access ssh \
-              --hostname %h \
-              --service-token-id ${{ secrets.CF_ACCESS_CLIENT_ID }} \
-              --service-token-secret ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+            ServerAliveInterval 30
+            ServerAliveCountMax 3
+            ProxyCommand cloudflared access ssh --hostname %h --service-token-id ${{ secrets.CF_ACCESS_CLIENT_ID }} --service-token-secret ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           EOF
 
-      # ── Upload compose file ────────────────────────────────────────────────
+      # ── Connectivity test — fail fast with diagnostic if tunnel is broken ─
+      - name: Test SSH connectivity
+        run: |
+          ssh ${{ env.SSH_HOST }} "echo 'SSH OK — hostname: $(hostname)'" || {
+            echo ""
+            echo "══════════════════════════════════════════════════════════"
+            echo "  SSH CONNECTION FAILED — check Cloudflare Zero Trust:"
+            echo ""
+            echo "  1. Zero Trust → Networks → Tunnels → your tunnel → Edit"
+            echo "     Ingress rules must include:"
+            echo "       hostname: ssh.krataf.dev"
+            echo "       service:  ssh://localhost:22"
+            echo ""
+            echo "  2. Zero Trust → Access → Applications"
+            echo "     App 'ssh.krataf.dev' must exist with policy:"
+            echo "       Action: Allow"
+            echo "       Include: Service Token = CF_ACCESS_CLIENT_ID secret"
+            echo "══════════════════════════════════════════════════════════"
+            exit 1
+          }
+
+      # ── Upload latest compose file ─────────────────────────────────────────
       - name: Upload docker-compose.prod.yml
         run: |
           ssh ${{ env.SSH_HOST }} "mkdir -p ${{ env.DEPLOY_DIR }}"
           cat docker-compose.prod.yml | \
             ssh ${{ env.SSH_HOST }} "cat > ${{ env.DEPLOY_DIR }}/docker-compose.prod.yml"
 
-      # ── Pull, migrate, restart ─────────────────────────────────────────────
+      # ── Pull pre-built image, migrate DB, restart app ─────────────────────
+      # Using single-quoted SSHEOF so bash doesn't expand $vars on the runner.
+      # GitHub Actions ${{ }} expressions are substituted before bash runs,
+      # so they work as literal values inside the single-quoted heredoc.
       - name: Deploy
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_ACTOR: ${{ github.actor }}
-          IMG: ${{ env.IMAGE }}
         run: |
-          ssh ${{ env.SSH_HOST }} << SSHEOF
+          ssh ${{ env.SSH_HOST }} << 'SSHEOF'
           set -e
           cd ${{ env.DEPLOY_DIR }}
 
-          # Sanity check — .env.prod must exist
+          # Preflight — .env.prod must exist (created during initial setup)
           if [ ! -f .env.prod ]; then
-            echo "ERROR: .env.prod not found on NAS. Run initial setup first." >&2
+            echo "ERROR: .env.prod not found on NAS. Run synology/setup.sh first." >&2
             exit 1
           fi
 
-          echo "${GH_TOKEN}" | docker login ghcr.io -u ${GH_ACTOR} --password-stdin
+          # Log in to GHCR using the CI workflow's token (read-only pull)
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          docker pull ${IMG}:latest
+          # Pull the image already built and pushed by the CI workflow
+          docker pull ${{ env.IMAGE }}:latest
 
-          # Start DB first (idempotent)
+          # Ensure DB is running (idempotent)
           docker compose -f docker-compose.prod.yml --env-file .env.prod up -d postgres
           sleep 8
 
-          # Run migrations (use compose so env vars are expanded correctly)
+          # Run any pending migrations in a disposable container
           docker compose -f docker-compose.prod.yml --env-file .env.prod \
             run --rm --no-deps app \
             sh -c "cd packages/backend && npx prisma migrate deploy"
 
-          # Restart app
+          # Restart the app container with the new image
           docker compose -f docker-compose.prod.yml --env-file .env.prod \
             up -d --no-deps --force-recreate app
 
           docker image prune -f
+          echo "Deploy complete on $(hostname) at $(date)"
           SSHEOF
 
-      # ── Health check ───────────────────────────────────────────────────────
+      # ── Health check — poll until app responds or timeout after 60 s ──────
       - name: Health check
         run: |
-          sleep 20
-          ssh ${{ env.SSH_HOST }} \
-            "curl -sf http://localhost:3010/health && echo 'Deploy OK ✓'"
+          echo "Waiting for app to start..."
+          for i in $(seq 1 12); do
+            result=$(ssh ${{ env.SSH_HOST }} \
+              "curl -sf http://localhost:3010/health 2>/dev/null" || true)
+            if [ -n "$result" ]; then
+              echo "✓ Deploy OK: $result"
+              exit 0
+            fi
+            echo "  Attempt $i/12 — not ready yet, waiting 5 s..."
+            sleep 5
+          done
+          echo "✗ Health check failed after 60 s"
+          ssh ${{ env.SSH_HOST }} "docker logs --tail 50 rodinka_app" || true
+          exit 1

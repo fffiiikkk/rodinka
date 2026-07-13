@@ -47,11 +47,11 @@ export default function Sheet({ open, onClose, title, children, fullScreen = fal
             style={{ boxShadow: 'var(--shadow-modal)' }}
           >
             {/* Gradient top accent line */}
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
 
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 rounded-full bg-border-strong" />
+              <div className="w-10 h-1 rounded-full bg-gradient-to-r from-primary/30 via-border-strong to-accent/20" />
             </div>
 
             {/* Header */}

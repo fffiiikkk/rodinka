@@ -48,7 +48,7 @@ export default function BottomNav() {
               <>
                 {/* Active pill background */}
                 {isActive && (
-                  <span className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-10 rounded-2xl bg-primary/12" />
+                  <span className="absolute top-2 left-1/2 -translate-x-1/2 w-11 h-10 rounded-2xl bg-gradient-to-br from-primary/22 to-accent/12" />
                 )}
 
                 <Icon
@@ -56,23 +56,18 @@ export default function BottomNav() {
                   strokeWidth={isActive ? 2.5 : 1.7}
                   className={`relative z-10 transition-all duration-200 ${
                     isActive
-                      ? 'text-primary scale-110'
+                      ? 'text-primary scale-110 drop-shadow-sm'
                       : 'text-ink-faint group-hover:text-ink-muted group-hover:scale-105'
                   }`}
                 />
 
                 <span
-                  className={`text-[10px] font-semibold relative z-10 transition-colors duration-200 ${
+                  className={`text-[10px] font-bold relative z-10 transition-colors duration-200 ${
                     isActive ? 'text-primary' : 'text-ink-faint group-hover:text-ink-muted'
                   }`}
                 >
                   {label}
                 </span>
-
-                {/* Active dot */}
-                {isActive && (
-                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
-                )}
               </>
             )}
           </NavLink>

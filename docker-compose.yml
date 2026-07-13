@@ -1,5 +1,15 @@
 version: '3.9'
 
+# ── Rodinka — Generic / local reference compose ──────────────────────────────
+# For local development use docker-compose.dev.yml.
+# For production on Synology use docker-compose.prod.yml.
+#
+# IMPORTANT: Do NOT add a 'cloudflared' service here.
+# The Cloudflare tunnel is managed centrally on the NAS as a separate
+# standalone container (or Synology package). Adding it here risks
+# overwriting the shared tunnel configuration that is used by all
+# applications (rodinka, training-diary, avatar, etc.).
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -50,20 +60,6 @@ services:
       start_period: 30s
     networks:
       - internal
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
-    depends_on:
-      app:
-        condition: service_healthy
-    networks:
-      - internal
-    profiles:
-      - cloudflare  # Only starts with: docker compose --profile cloudflare up
 
 volumes:
   pgdata:
