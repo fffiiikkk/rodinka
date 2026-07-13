@@ -845,7 +845,7 @@ export default function CalendarPage() {
       if (e.eventType && e.eventTypeId && !map.has(e.eventTypeId)) {
         map.set(e.eventTypeId, {
           id: e.eventTypeId,
-          nameCs: (e.eventType as any).nameCs ?? (e.eventType as any).nameEn ?? e.eventType.name ?? '',
+          nameCs: e.eventType.nameCs ?? e.eventType.nameEn ?? '',
           icon: e.eventType.icon ?? '📌',
           color: e.eventType.color ?? '#a3a3a3',
         });
