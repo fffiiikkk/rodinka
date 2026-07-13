@@ -11,7 +11,7 @@ import { cs } from 'date-fns/locale';
 import Sheet from '../components/ui/Sheet.js';
 import EventForm from '../components/events/EventForm.js';
 import UnavailabilitySheet from '../components/calendar/UnavailabilitySheet.js';
-import { AvailabilityStrip, AvailabilityDots } from '../components/calendar/AvailabilityStrip.js';
+import { AvailabilityStrip, AvailabilityBars, AvailabilityDots } from '../components/calendar/AvailabilityStrip.js';
 import { BirthdayStrip, BirthdayDots } from '../components/calendar/BirthdayStrip.js';
 import { useCalendarLayer, type CalendarLayerEvent } from '../hooks/useCalendarLayer.js';
 import type { Event, Availability } from '@rodinkal/shared';
@@ -127,38 +127,37 @@ function TgAllDaySection({
   const multiDay = events.filter(isMultiDayEvent);
   const singleAllDay = events.filter((e) => e.allDay && !isMultiDayEvent(e));
 
+  const weekDayStrs = weekDays.map((d) => format(d, 'yyyy-MM-dd'));
+  const weekAvail = availability.filter((a) => {
+    const af = a.dateFrom.slice(0, 10);
+    const at = a.dateTo.slice(0, 10);
+    return af <= weekDayStrs[6]! && at >= weekDayStrs[0]!;
+  });
+
   // Compute spanning layouts for this week
   const spanLayouts = layoutSpanningForWeek(multiDay, weekDays);
   const maxLane = spanLayouts.length > 0 ? Math.max(...spanLayouts.map((l) => l.lane)) : -1;
   const spanH = maxLane >= 0 ? (maxLane + 1) * LANE_H + 6 : 0;
 
-  const hasContent = spanH > 0 || singleAllDay.length > 0 || availability.some((a) => {
-    const ws = format(weekDays[0]!, 'yyyy-MM-dd');
-    const we = format(weekDays[6]!, 'yyyy-MM-dd');
-    return a.dateFrom.slice(0, 10) <= we && a.dateTo.slice(0, 10) >= ws;
-  });
-
+  const hasContent = spanH > 0 || singleAllDay.length > 0 || weekAvail.length > 0;
   if (!hasContent) return null;
 
   return (
     <div className="border-b border-border/60 bg-surface-overlay/30">
-      {/* Availability dots row */}
-      <div className="flex">
-        <div className="w-12 shrink-0 py-0.5 flex items-center justify-end pr-1">
-          <span className="text-[9px] text-ink-faint font-medium">Avail</span>
+      {/* Availability spanning bars */}
+      {weekAvail.length > 0 && (
+        <div className="flex">
+          <div className="w-12 shrink-0 flex items-start justify-end pt-2 pr-1">
+            <span className="text-[9px] text-ink-faint font-medium leading-none">Dostup.</span>
+          </div>
+          <div className="flex-1 relative pr-1 py-0.5">
+            <AvailabilityBars
+              items={weekAvail}
+              weekDays={weekDayStrs}
+            />
+          </div>
         </div>
-        {weekDays.map((day, idx) => {
-          const dayStr = format(day, 'yyyy-MM-dd');
-          const dayAvail = availability.filter(
-            (a) => a.dateFrom.slice(0, 10) <= dayStr && a.dateTo.slice(0, 10) >= dayStr,
-          );
-          return (
-            <div key={idx} className="flex-1 border-l border-border/40 py-0.5 px-0.5">
-              <AvailabilityDots items={dayAvail} />
-            </div>
-          );
-        })}
-      </div>
+      )}
 
       {/* Spanning multi-day events */}
       {spanH > 0 && (
@@ -477,11 +476,17 @@ function AgendaView({
   const { user } = useAuth();
   const days = eachDayOfInterval({ start: from, end: to });
 
-  function dayAvail(dayStr: string) {
+  /** Items that START on this day — show as full pill */
+  function availStarting(dayStr: string) {
+    return availability.filter((a) => a.dateFrom.slice(0, 10) === dayStr);
+  }
+
+  /** Items that span THROUGH this day (but didn't start today) — subtle accent colours */
+  function availContinuing(dayStr: string) {
     return availability.filter((a) => {
       const af = a.dateFrom.slice(0, 10);
       const at = a.dateTo.slice(0, 10);
-      return af <= dayStr && at >= dayStr;
+      return af < dayStr && at >= dayStr;
     });
   }
 
@@ -504,9 +509,11 @@ function AgendaView({
           return startDay < dayStr && endDay >= dayStr;
         });
 
-        const dayAvailItems = dayAvail(dayStr);
-        const dayLayerItems = layer.filter((l) => l.date === dayStr);
-        const hasContent = startingEvents.length > 0 || continuingEvents.length > 0 || dayAvailItems.length > 0 || dayLayerItems.length > 0;
+        const startingAvail   = availStarting(dayStr);
+        const continuingAvail = availContinuing(dayStr);
+        const dayLayerItems   = layer.filter((l) => l.date === dayStr);
+        const hasContent = startingEvents.length > 0 || continuingEvents.length > 0
+          || startingAvail.length > 0 || dayLayerItems.length > 0;
 
         if (!hasContent) return null;
 
@@ -534,9 +541,33 @@ function AgendaView({
                 )}
               </div>
             </div>
+            {/* Continuation accent — tiny coloured pills for availability spanning through this day */}
+            {continuingAvail.length > 0 && (
+              <div className="flex flex-wrap gap-1 ml-9 mb-1">
+                {continuingAvail.map((a) => {
+                  const color = a.status === 'UNAVAILABLE' && !a.isExternal
+                    ? (a.userColor ?? '#ef4444')
+                    : a.isExternal ? '#3b82f6' : (a.userColor ?? '#22c55e');
+                  const name = a.isExternal ? (a.externalName ?? '?') : a.userName;
+                  return (
+                    <span
+                      key={a.id}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                      style={{ background: color + '18', color, border: `1px dashed ${color}60` }}
+                      title={`${name} — pokračuje do ${a.dateTo.slice(0, 10)}`}
+                    >
+                      <span className="w-3 h-3 rounded-full text-white text-[7px] font-bold flex items-center justify-center shrink-0" style={{ background: color }}>
+                        {a.isExternal ? '🤝' : name.slice(0, 1).toUpperCase()}
+                      </span>
+                      <span className="opacity-70">↳ do {a.dateTo.slice(5, 10).replace('-', '.')}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
             <BirthdayStrip items={dayLayerItems} />
             <AvailabilityStrip
-              items={dayAvailItems}
+              items={startingAvail}
               currentUserId={user?.id}
               isAdmin={user?.role === 'PARENT'}
               onEdit={onEditAvail}
@@ -712,7 +743,16 @@ function layoutSpanningForWeek(multiDayEvents: Event[], weekDays: Date[]): Spann
   });
 }
 
-function MonthGrid({ events, availability, layer, currentDate }: { events: Event[]; availability: Availability[]; layer: CalendarLayerEvent[]; currentDate: Date }) {
+function MonthGrid({ events, availability, layer, currentDate, currentUserId, isAdmin, onEditAvail, onDeleteAvail }: {
+  events: Event[];
+  availability: Availability[];
+  layer: CalendarLayerEvent[];
+  currentDate: Date;
+  currentUserId?: string;
+  isAdmin?: boolean;
+  onEditAvail?: (item: Availability) => void;
+  onDeleteAvail?: (item: Availability) => void;
+}) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -743,12 +783,35 @@ function MonthGrid({ events, availability, layer, currentDate }: { events: Event
       {/* Week rows */}
       <div className="rounded-lg overflow-hidden border border-border">
         {weeks.map((weekDays, weekIdx) => {
+          const weekDayStrs = weekDays.map((d) => format(d, 'yyyy-MM-dd'));
           const spanningLayouts = layoutSpanningForWeek(multiDayEvents, weekDays);
           const maxLane = spanningLayouts.length > 0 ? Math.max(...spanningLayouts.map((l) => l.lane)) : -1;
           const spanAreaHeight = maxLane >= 0 ? (maxLane + 1) * LANE_H + 6 : 0;
 
+          // Availability items that touch this week
+          const weekAvail = availability.filter((a) => {
+            const af = a.dateFrom.slice(0, 10);
+            const at = a.dateTo.slice(0, 10);
+            return af <= weekDayStrs[6]! && at >= weekDayStrs[0]!;
+          });
+
           return (
             <div key={weekIdx} className={weekIdx > 0 ? 'border-t border-border' : ''}>
+
+              {/* Availability spanning bars */}
+              {weekAvail.length > 0 && (
+                <div className="px-px bg-surface/60 border-b border-border/40">
+                  <AvailabilityBars
+                    items={weekAvail}
+                    weekDays={weekDayStrs}
+                    currentUserId={currentUserId}
+                    isAdmin={isAdmin}
+                    onEdit={onEditAvail}
+                    onDelete={onDeleteAvail}
+                  />
+                </div>
+              )}
+
               {/* Spanning events bar */}
               {spanAreaHeight > 0 && (
                 <div className="relative bg-surface px-px" style={{ height: `${spanAreaHeight}px` }}>
@@ -1052,7 +1115,18 @@ export default function CalendarPage() {
             {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16 rounded-lg" />)}
           </div>
         ) : view === 'month' ? (
-          <MonthGrid events={filteredEvents} availability={availability} layer={layer} currentDate={currentDate} />
+          <MonthGrid
+            events={filteredEvents}
+            availability={availability}
+            layer={layer}
+            currentDate={currentDate}
+            currentUserId={user?.id}
+            isAdmin={user?.role === 'PARENT'}
+            onEditAvail={setEditAvailItem}
+            onDeleteAvail={(item) => {
+              if (confirm('Smazat tento záznam?')) deleteAvailability.mutate(item.id);
+            }}
+          />
         ) : view === 'week' ? (
           <WeekTimeGrid events={filteredEvents} weekStart={queryFrom} availability={availability} />
         ) : (
