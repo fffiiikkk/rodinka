@@ -10,7 +10,7 @@ import Avatar from '../components/ui/Avatar.js';
 import Sheet from '../components/ui/Sheet.js';
 import EventForm from '../components/events/EventForm.js';
 import DatePicker from '../components/ui/DatePicker.js';
-import { format, differenceInMinutes, addMinutes } from 'date-fns';
+import { format } from 'date-fns';
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -32,8 +32,8 @@ export default function EventDetailPage() {
   const [copying, setCopying] = useState(false);
 
   if (isLoading) return (
-    <div className="p-4 space-y-3">
-      {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-12 rounded-lg" />)}
+    <div className="p-3 space-y-2">
+      {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-10 rounded-lg" />)}
     </div>
   );
 
@@ -77,80 +77,79 @@ export default function EventDetailPage() {
 
   return (
     <div className="pb-8">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 flex items-start gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 text-ink-muted hover:text-ink mt-1">
-          <ChevronLeft size={22} />
+      {/* ── Compact header ─────────────────────────────────────────── */}
+      <div className="px-3 pt-3 pb-2 flex items-center gap-2">
+        <button onClick={() => navigate(-1)} className="p-1.5 text-ink-muted hover:text-ink rounded-lg">
+          <ChevronLeft size={20} />
         </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-3xl">{event.eventType?.icon ?? '📌'}</span>
-            <div
-              className="h-3 w-3 rounded-full shrink-0"
-              style={{ background: color }}
-            />
-          </div>
-          <h1 className="text-2xl font-extrabold text-ink">{event.title}</h1>
+        {/* Colour strip + icon */}
+        <div
+          className="w-1 self-stretch rounded-full shrink-0"
+          style={{ background: color }}
+        />
+        <span className="text-2xl leading-none">{event.eventType?.icon ?? '📌'}</span>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-base font-extrabold text-ink leading-tight truncate">{event.title}</h1>
           {event.eventType && (
-            <p className="text-sm text-ink-muted">{event.eventType.nameCs}</p>
+            <p className="text-[11px] text-ink-muted leading-none mt-0.5">{event.eventType.nameCs}</p>
           )}
         </div>
-      </div>
-
-      {/* Status badge */}
-      {event.status !== 'APPROVED' && (
-        <div className="mx-4 mb-3">
-          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${
+        {event.status !== 'APPROVED' && (
+          <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${
             event.status === 'PROPOSED' ? 'bg-warning/15 text-warning' : 'bg-danger/15 text-danger'
           }`}>
             {t(`event.status.${event.status}`)}
           </span>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className="px-4 space-y-4">
-        {/* Date/time */}
-        <div className="card p-4 flex items-start gap-3">
-          <Calendar size={20} className="text-primary shrink-0 mt-0.5" />
-          <div>
-            <p className="font-semibold text-ink">{formatDateTime(event.start)}</p>
+      {/* ── Detail card (all rows in one card with dividers) ────────── */}
+      <div className="mx-3 rounded-xl border border-border bg-surface-raised overflow-hidden divide-y divide-border">
+
+        {/* Date / time */}
+        <div className="flex items-center gap-2.5 px-3 py-2.5">
+          <Calendar size={15} className="text-primary shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink leading-snug">{formatDateTime(event.start)}</p>
             {event.end !== event.start && (
-              <p className="text-sm text-ink-muted">→ {formatDateTime(event.end)}</p>
+              <p className="text-xs text-ink-muted">→ {formatDateTime(event.end)}</p>
             )}
-            {event.allDay && <p className="text-sm text-ink-muted">{t('calendar.allDay')}</p>}
+            {event.allDay && <p className="text-xs text-ink-muted">{t('calendar.allDay')}</p>}
           </div>
         </div>
 
         {/* Location */}
         {event.location && (
-          <div className="card p-4 flex items-start gap-3">
-            <MapPin size={20} className="text-primary shrink-0 mt-0.5" />
-            <p className="text-ink">{event.location}</p>
+          <div className="flex items-center gap-2.5 px-3 py-2.5">
+            <MapPin size={15} className="text-primary shrink-0" />
+            <p className="text-sm text-ink truncate">{event.location}</p>
           </div>
         )}
 
         {/* Description */}
         {event.description && (
-          <div className="card p-4">
-            <p className="text-ink whitespace-pre-wrap">{event.description}</p>
+          <div className="px-3 py-2.5">
+            <p className="text-sm text-ink whitespace-pre-wrap">{event.description}</p>
           </div>
         )}
 
         {/* Transport */}
         {event.transport && (
-          <div className="card p-4 flex items-start gap-3">
-            <Car size={20} className="text-primary shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1">Doprava</p>
+          <div className="flex items-center gap-2.5 px-3 py-2.5">
+            <Car size={15} className="text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wide">Doprava</p>
               {event.transport.externalName ? (
-                <p className="font-semibold text-ink">🤝 {event.transport.externalName}</p>
+                <p className="text-sm font-semibold text-ink">🤝 {event.transport.externalName}</p>
               ) : event.transport.userName && event.transport.userRole === 'KID' ? (
-                <p className="font-semibold text-ink">🚶 {event.transport.userName} <span className="text-ink-muted font-normal text-sm">(jde/jede samo)</span></p>
+                <p className="text-sm font-semibold text-ink">
+                  🚶 {event.transport.userName} <span className="text-ink-muted font-normal text-xs">samo</span>
+                </p>
               ) : event.transport.userName ? (
-                <p className="font-semibold text-ink">🚗 {event.transport.userName}</p>
+                <p className="text-sm font-semibold text-ink">🚗 {event.transport.userName}</p>
               ) : null}
               {event.transport.note && (
-                <p className="text-sm text-ink-muted mt-0.5">{event.transport.note}</p>
+                <p className="text-xs text-ink-muted">{event.transport.note}</p>
               )}
             </div>
           </div>
@@ -158,16 +157,13 @@ export default function EventDetailPage() {
 
         {/* Participants */}
         {event.participants.length > 0 && (
-          <div className="card p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={18} className="text-primary" />
-              <h3 className="font-semibold text-ink">{t('event.participants')}</h3>
-            </div>
-            <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-2.5 px-3 py-2.5">
+            <Users size={15} className="text-primary shrink-0" />
+            <div className="flex flex-wrap gap-1.5">
               {event.participants.map((p) => (
-                <div key={p.userId} className="flex items-center gap-1.5 bg-surface-overlay rounded-full px-2 py-1">
+                <div key={p.userId} className="flex items-center gap-1 bg-surface-overlay rounded-full px-2 py-0.5">
                   <Avatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                  <span className="text-sm font-medium">{p.name}</span>
+                  <span className="text-xs font-medium text-ink">{p.name}</span>
                 </div>
               ))}
             </div>
@@ -176,150 +172,139 @@ export default function EventDetailPage() {
 
         {/* Attachments */}
         {event.attachments.length > 0 && (
-          <div className="card p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Paperclip size={18} className="text-primary" />
-              <h3 className="font-semibold text-ink">{t('event.attachments')}</h3>
+          <div className="px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-2">
+              <Paperclip size={14} className="text-primary" />
+              <span className="text-xs font-bold text-ink-muted uppercase tracking-wide">{t('event.attachments')}</span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {event.attachments.map((att) => (
                 <a
                   key={att.id}
                   href={att.downloadUrl}
-                  className="flex items-center gap-3 p-2 bg-surface-overlay rounded-lg"
+                  className="flex items-center gap-2.5 p-2 bg-surface-overlay rounded-lg"
                   target="_blank"
                   rel="noreferrer"
                 >
                   {att.thumbnailUrl && (
-                    <img src={att.thumbnailUrl} className="w-12 h-12 rounded object-cover" alt="" />
+                    <img src={att.thumbnailUrl} className="w-10 h-10 rounded object-cover shrink-0" alt="" />
                   )}
-                  <div>
-                    <p className="text-sm font-medium text-ink">{att.fileName}</p>
-                    <p className="text-xs text-ink-muted">{(att.size / 1024).toFixed(0)} KB</p>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-ink truncate">{att.fileName}</p>
+                    <p className="text-[10px] text-ink-muted">{(att.size / 1024).toFixed(0)} KB</p>
                   </div>
                 </a>
               ))}
             </div>
           </div>
         )}
-
-        {/* Admin actions */}
-        {isAdmin && (
-          <div className="space-y-2">
-            {event.status === 'PROPOSED' && (
-              <div className="flex gap-3">
-                <button
-                  disabled={approve.isPending || reject.isPending}
-                  onClick={() => approve.mutate(event.id, {
-                    onSuccess: () => toast('Schváleno!', 'success'),
-                    onError: () => toast('Chyba při schvalování', 'error'),
-                  })}
-                  className="flex-1 btn-primary flex items-center justify-center gap-2 min-h-[48px] disabled:opacity-60"
-                >
-                  {approve.isPending ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-                  Schválit
-                </button>
-                <button
-                  disabled={approve.isPending || reject.isPending}
-                  onClick={() => reject.mutate(event.id, {
-                    onSuccess: () => { toast('Zamítnuto', 'info'); navigate(-1); },
-                    onError: () => toast('Chyba při zamítnutí', 'error'),
-                  })}
-                  className="flex-1 btn-secondary flex items-center justify-center gap-2 min-h-[48px] disabled:opacity-60"
-                >
-                  {reject.isPending ? <Loader2 size={18} className="animate-spin" /> : <X size={18} />}
-                  Zamítnout
-                </button>
-              </div>
-            )}
-
-            {/* Edit button — always visible for admin on non-holiday events */}
-            {!event.isHoliday && (
-              <button
-                onClick={() => setShowEdit(true)}
-                className="w-full flex items-center justify-center gap-2 border border-border font-semibold py-3 rounded-xl hover:bg-surface-overlay transition-colors text-ink"
-              >
-                <Pencil size={16} /> Upravit událost
-              </button>
-            )}
-
-            {/* Copy to another date */}
-            {!event.isHoliday && (
-              <button
-                onClick={() => { setCopyDate(format(new Date(event.start), 'yyyy-MM-dd')); setShowCopy(true); }}
-                className="w-full flex items-center justify-center gap-2 border border-border font-semibold py-3 rounded-xl hover:bg-surface-overlay transition-colors text-ink"
-              >
-                <Copy size={16} /> Zkopírovat na jiný den
-              </button>
-            )}
-
-            {event.status === 'APPROVED' && !event.isHoliday && (
-              !confirmDelete ? (
-                <button onClick={() => setConfirmDelete(true)}
-                  className="w-full text-danger border border-danger/30 font-semibold py-3 rounded-xl hover:bg-danger/5 transition-colors">
-                  Zrušit událost
-                </button>
-              ) : (
-                <div className="card p-4 border-danger/30 space-y-2">
-                  <p className="text-sm font-medium text-center">Opravdu zrušit tuto událost?</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => setConfirmDelete(false)} className="btn-secondary flex-1 min-h-[44px]">Ne</button>
-                    <button
-                      disabled={cancel.isPending}
-                      onClick={() => cancel.mutate(event.id, {
-                        onSuccess: () => { toast('Zrušeno', 'info'); navigate(-1); },
-                        onError: () => toast('Chyba při rušení', 'error'),
-                      })}
-                      className="flex-1 bg-danger text-white font-semibold py-3 rounded-xl disabled:opacity-60 flex items-center justify-center gap-2"
-                    >
-                      {cancel.isPending ? <Loader2 size={16} className="animate-spin" /> : null}
-                      Ano, zrušit
-                    </button>
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Edit Sheet */}
+      {/* ── Admin actions ───────────────────────────────────────────── */}
+      {isAdmin && (
+        <div className="mx-3 mt-3 space-y-2">
+
+          {/* Propose approve/reject */}
+          {event.status === 'PROPOSED' && (
+            <div className="flex gap-2">
+              <button
+                disabled={approve.isPending || reject.isPending}
+                onClick={() => approve.mutate(event.id, {
+                  onSuccess: () => toast('Schváleno!', 'success'),
+                  onError: () => toast('Chyba při schvalování', 'error'),
+                })}
+                className="flex-1 btn-primary flex items-center justify-center gap-1.5 py-2.5 disabled:opacity-60 text-sm"
+              >
+                {approve.isPending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                Schválit
+              </button>
+              <button
+                disabled={approve.isPending || reject.isPending}
+                onClick={() => reject.mutate(event.id, {
+                  onSuccess: () => { toast('Zamítnuto', 'info'); navigate(-1); },
+                  onError: () => toast('Chyba při zamítnutí', 'error'),
+                })}
+                className="flex-1 btn-secondary flex items-center justify-center gap-1.5 py-2.5 disabled:opacity-60 text-sm"
+              >
+                {reject.isPending ? <Loader2 size={15} className="animate-spin" /> : <X size={15} />}
+                Zamítnout
+              </button>
+            </div>
+          )}
+
+          {/* Edit + Copy row */}
+          {!event.isHoliday && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowEdit(true)}
+                className="flex-1 flex items-center justify-center gap-1.5 border border-border text-sm font-semibold py-2.5 rounded-xl hover:bg-surface-overlay transition-colors text-ink"
+              >
+                <Pencil size={14} /> Upravit
+              </button>
+              <button
+                onClick={() => { setCopyDate(format(new Date(event.start), 'yyyy-MM-dd')); setShowCopy(true); }}
+                className="flex-1 flex items-center justify-center gap-1.5 border border-border text-sm font-semibold py-2.5 rounded-xl hover:bg-surface-overlay transition-colors text-ink"
+              >
+                <Copy size={14} /> Zkopírovat
+              </button>
+            </div>
+          )}
+
+          {/* Cancel */}
+          {event.status === 'APPROVED' && !event.isHoliday && (
+            !confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-full text-danger border border-danger/30 text-sm font-semibold py-2.5 rounded-xl hover:bg-danger/5 transition-colors"
+              >
+                Zrušit událost
+              </button>
+            ) : (
+              <div className="rounded-xl border border-danger/30 bg-danger/5 p-3 space-y-2">
+                <p className="text-sm font-medium text-center text-ink">Opravdu zrušit tuto událost?</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setConfirmDelete(false)} className="btn-secondary flex-1 py-2 text-sm">Ne</button>
+                  <button
+                    disabled={cancel.isPending}
+                    onClick={() => cancel.mutate(event.id, {
+                      onSuccess: () => { toast('Zrušeno', 'info'); navigate(-1); },
+                      onError: () => toast('Chyba při rušení', 'error'),
+                    })}
+                    className="flex-1 bg-danger text-white text-sm font-semibold py-2 rounded-xl disabled:opacity-60 flex items-center justify-center gap-1.5"
+                  >
+                    {cancel.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+                    Ano, zrušit
+                  </button>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+      )}
+
+      {/* ── Edit Sheet ──────────────────────────────────────────────── */}
       <Sheet open={showEdit} onClose={() => setShowEdit(false)} title="Upravit událost" fullScreen>
-        <EventForm
-          onClose={() => setShowEdit(false)}
-          initialValues={event}
-        />
+        <EventForm onClose={() => setShowEdit(false)} initialValues={event} />
       </Sheet>
 
-      {/* Copy to another date Sheet */}
+      {/* ── Copy Sheet ──────────────────────────────────────────────── */}
       <Sheet open={showCopy} onClose={() => setShowCopy(false)} title="Zkopírovat na jiný den">
-        <div className="p-4 space-y-4">
+        <div className="p-3 space-y-3">
           <p className="text-sm text-ink-muted">
-            Vytvoří novou kopii události <strong className="text-ink">{event.title}</strong> na zvolený den.
-            Čas a trvání zůstanou stejné.
+            Nová kopie <strong className="text-ink">{event.title}</strong> na zvolený den — stejný čas a trvání.
           </p>
-          <div>
-            <label className="label text-xs">Nový datum</label>
-            <DatePicker
-              value={copyDate}
-              onChange={setCopyDate}
-            />
-          </div>
+          <DatePicker value={copyDate} onChange={setCopyDate} />
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setShowCopy(false)}
-              className="btn-secondary flex-1 py-2.5"
-            >
+            <button type="button" onClick={() => setShowCopy(false)} className="btn-secondary flex-1 py-2.5 text-sm">
               Zrušit
             </button>
             <button
               type="button"
               disabled={!copyDate || copying}
               onClick={handleCopy}
-              className="btn-primary flex-1 py-2.5 flex items-center justify-center gap-2 disabled:opacity-60"
+              className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              {copying ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}
+              {copying ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
               Zkopírovat
             </button>
           </div>
