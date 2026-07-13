@@ -217,6 +217,9 @@ export default function BadgesPage() {
   const { data: progress = [] } = useBadgeProgress();
   const isLoading = loadingBadges || loadingDefs;
 
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [selected, setSelected] = useState<BadgeDefinition | null>(null);
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-3">
@@ -228,9 +231,6 @@ export default function BadgesPage() {
       </div>
     );
   }
-
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [selected, setSelected] = useState<BadgeDefinition | null>(null);
 
   const earnedMap = new Map(userBadges.map((b) => [b.badgeDefinitionId, b]));
   const progressMap = new Map(progress.map((p) => [p.badge.id, p]));
