@@ -5,8 +5,8 @@ const baseEvent = {
   id: 'evt1',
   title: 'Test event',
   recurrenceRule: 'FREQ=WEEKLY;BYDAY=TU,TH',
-  start: new Date('2025-01-07T17:00:00.000Z'), // Tuesday
-  end: new Date('2025-01-07T18:30:00.000Z'),
+  start: '2025-01-07T17:00:00.000Z', // Tuesday (ISO string)
+  end: '2025-01-07T18:30:00.000Z',
   allDay: false,
 };
 

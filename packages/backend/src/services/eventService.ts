@@ -102,11 +102,13 @@ export const eventService = {
 
     if (!params.expandRecurring) return events.map(serializeEvent);
 
-    // Expand recurring events
+    // Expand recurring events — serialize FIRST so occurrences inherit
+    // properly shaped participants/transport (flat objects, ISO date strings).
     const expanded: any[] = [];
     for (const e of events) {
       if (e.recurrenceRule) {
-        const occurrences = recurrenceService.expand(e, params.from, params.to);
+        const serialized = serializeEvent(e);
+        const occurrences = recurrenceService.expand(serialized, params.from, params.to);
         expanded.push(...occurrences);
       } else {
         expanded.push(serializeEvent(e));
