@@ -403,6 +403,7 @@ export default function EventDetailPage() {
               recurrenceRule: null, // exception has no recurrence
             }}
             exceptionFor={{ parentId: event.id, occurrenceDate }}
+            onExceptionCreated={(newId) => navigate(`/event/${newId}`)}
           />
         ) : (
           <EventForm onClose={() => setEditDialog(null)} initialValues={event} />

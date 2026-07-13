@@ -29,9 +29,11 @@ interface Props {
   initialValues?: Event;
   /** When set, saving creates an exception for this occurrence instead of updating the parent */
   exceptionFor?: { parentId: string; occurrenceDate: string };
+  /** Called with the newly created exception event so the caller can navigate to it */
+  onExceptionCreated?: (eventId: string) => void;
 }
 
-export default function EventForm({ onClose, defaultDate = new Date(), initialValues, exceptionFor }: Props) {
+export default function EventForm({ onClose, defaultDate = new Date(), initialValues, exceptionFor, onExceptionCreated }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -204,8 +206,12 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
     try {
       if (exceptionFor) {
         // Save an exception for one occurrence of a recurring series
-        await createException.mutateAsync({ parentId: exceptionFor.parentId, data: buildPayload() });
+        const result = await createException.mutateAsync({ parentId: exceptionFor.parentId, data: buildPayload() });
         toast('✅ Tato instance upravena!', 'success');
+        onClose();
+        // Navigate to the new exception event so the user sees their changes, not the parent
+        onExceptionCreated?.(result.event.id);
+        return;
       } else if (isEdit) {
         await updateEvent.mutateAsync({ id: initialValues!.id, data: buildPayload() });
         toast('✅ Událost uložena!', 'success');
