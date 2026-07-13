@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Calendar, Users, Paperclip, ChevronLeft, Check, X, Car, Pencil, Loader2 } from 'lucide-react';
-import { useEvent, useApproveEvent, useRejectEvent, useCancelEvent, useUpdateEvent } from '../hooks/useEvents.js';
+import { MapPin, Calendar, Users, Paperclip, ChevronLeft, Check, X, Car, Pencil, Loader2, Copy } from 'lucide-react';
+import { useEvent, useApproveEvent, useRejectEvent, useCancelEvent, useCreateEvent } from '../hooks/useEvents.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { formatDateTime } from '../lib/dates.js';
 import { useToast } from '../components/ui/Toast.js';
 import Avatar from '../components/ui/Avatar.js';
 import Sheet from '../components/ui/Sheet.js';
 import EventForm from '../components/events/EventForm.js';
+import DatePicker from '../components/ui/DatePicker.js';
+import { format, differenceInMinutes, addMinutes } from 'date-fns';
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,9 +23,13 @@ export default function EventDetailPage() {
   const approve = useApproveEvent();
   const reject = useRejectEvent();
   const cancel = useCancelEvent();
+  const createEvent = useCreateEvent();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showCopy, setShowCopy] = useState(false);
+  const [copyDate, setCopyDate] = useState('');
+  const [copying, setCopying] = useState(false);
 
   if (isLoading) return (
     <div className="p-4 space-y-3">
@@ -37,6 +43,37 @@ export default function EventDetailPage() {
 
   const isAdmin = user?.role === 'PARENT';
   const color = event.eventType?.color ?? event.colorOverride ?? '#a3a3a3';
+
+  const handleCopy = async () => {
+    if (!copyDate || !event) return;
+    setCopying(true);
+    try {
+      const origStart = new Date(event.start);
+      const origEnd = new Date(event.end);
+      const durationMs = origEnd.getTime() - origStart.getTime();
+      const newStart = new Date(`${copyDate}T${format(origStart, 'HH:mm')}`);
+      const newEnd = new Date(newStart.getTime() + durationMs);
+      await createEvent.mutateAsync({
+        title: event.title,
+        description: event.description ?? undefined,
+        eventTypeId: event.eventType?.id,
+        start: newStart.toISOString(),
+        end: newEnd.toISOString(),
+        allDay: event.allDay,
+        location: event.location ?? undefined,
+        participantIds: event.participants.map((p) => p.userId),
+        transportUserId: event.transport?.userId ?? undefined,
+        transportExternalName: event.transport?.externalName ?? undefined,
+        transportNote: event.transport?.note ?? undefined,
+      } as any);
+      toast('✅ Událost zkopírována!', 'success');
+      setShowCopy(false);
+    } catch {
+      toast(t('errors.generic'), 'error');
+    } finally {
+      setCopying(false);
+    }
+  };
 
   return (
     <div className="pb-8">
@@ -206,6 +243,16 @@ export default function EventDetailPage() {
               </button>
             )}
 
+            {/* Copy to another date */}
+            {!event.isHoliday && (
+              <button
+                onClick={() => { setCopyDate(format(new Date(event.start), 'yyyy-MM-dd')); setShowCopy(true); }}
+                className="w-full flex items-center justify-center gap-2 border border-border font-semibold py-3 rounded-xl hover:bg-surface-overlay transition-colors text-ink"
+              >
+                <Copy size={16} /> Zkopírovat na jiný den
+              </button>
+            )}
+
             {event.status === 'APPROVED' && !event.isHoliday && (
               !confirmDelete ? (
                 <button onClick={() => setConfirmDelete(true)}
@@ -242,6 +289,41 @@ export default function EventDetailPage() {
           onClose={() => setShowEdit(false)}
           initialValues={event}
         />
+      </Sheet>
+
+      {/* Copy to another date Sheet */}
+      <Sheet open={showCopy} onClose={() => setShowCopy(false)} title="Zkopírovat na jiný den">
+        <div className="p-4 space-y-4">
+          <p className="text-sm text-ink-muted">
+            Vytvoří novou kopii události <strong className="text-ink">{event.title}</strong> na zvolený den.
+            Čas a trvání zůstanou stejné.
+          </p>
+          <div>
+            <label className="label text-xs">Nový datum</label>
+            <DatePicker
+              value={copyDate}
+              onChange={setCopyDate}
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowCopy(false)}
+              className="btn-secondary flex-1 py-2.5"
+            >
+              Zrušit
+            </button>
+            <button
+              type="button"
+              disabled={!copyDate || copying}
+              onClick={handleCopy}
+              className="btn-primary flex-1 py-2.5 flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {copying ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}
+              Zkopírovat
+            </button>
+          </div>
+        </div>
       </Sheet>
     </div>
   );

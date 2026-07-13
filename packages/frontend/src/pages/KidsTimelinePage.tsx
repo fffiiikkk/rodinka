@@ -11,7 +11,7 @@ import {
   format, addDays, subDays, startOfDay, isToday, getDay,
 } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { AlertTriangle, CalendarDays, Plus, X, Users, Baby } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Plus, X, Users, Baby, Info } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useEvents } from '../hooks/useEvents.js';
 import Sheet from '../components/ui/Sheet.js';
@@ -63,12 +63,23 @@ function overlaps(a: Event, b: Event): boolean {
   return aS < bE && bS < aE;
 }
 
-function findConflicts(kidEvents: Event[][]): [number, number][] {
-  const pairs: [number, number][] = [];
+interface ConflictPair {
+  kidIdxA: number;
+  kidIdxB: number;
+  eventA: Event;
+  eventB: Event;
+}
+
+function findConflictPairs(kidEvents: Event[][]): ConflictPair[] {
+  const pairs: ConflictPair[] = [];
   for (let i = 0; i < kidEvents.length; i++) {
     for (let j = i + 1; j < kidEvents.length; j++) {
-      if (kidEvents[i]!.some((ea) => kidEvents[j]!.some((eb) => overlaps(ea, eb)))) {
-        pairs.push([i, j]);
+      for (const ea of kidEvents[i]!) {
+        for (const eb of kidEvents[j]!) {
+          if (overlaps(ea, eb)) {
+            pairs.push({ kidIdxA: i, kidIdxB: j, eventA: ea, eventB: eb });
+          }
+        }
       }
     }
   }
@@ -100,12 +111,64 @@ function roleLabel(role: string): string {
   return map[role] ?? role;
 }
 
+// ─── Collision tooltip ──────────────────────────────────────────────────────────
+
+interface ConflictReason {
+  otherKidName: string;
+  myEvent: Event;
+  otherEvent: Event;
+}
+
+function CollisionTooltip({ reasons }: { reasons: ConflictReason[] }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
+        className="flex items-center gap-1 text-[10px] text-red-600 font-bold px-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+      >
+        <AlertTriangle size={10} />
+        Kolize!
+        <Info size={9} className="opacity-70" />
+      </button>
+
+      {open && (
+        <div className="mt-1 rounded-lg border border-red-200 dark:border-red-800 bg-white dark:bg-red-950/60 p-2 text-[10px] space-y-1.5 shadow-lg z-50">
+          {reasons.map((r, i) => (
+            <div key={i} className="flex flex-col gap-0.5">
+              <span className="font-bold text-red-700 dark:text-red-300">
+                Kolize s {r.otherKidName}:
+              </span>
+              <span className="text-red-600 dark:text-red-400">
+                {r.myEvent.eventType?.icon ?? '📌'} {r.myEvent.title} ({timeLabel(r.myEvent)})
+              </span>
+              <span className="text-red-500">
+                ↔ {r.otherEvent.eventType?.icon ?? '📌'} {r.otherEvent.title} ({timeLabel(r.otherEvent)})
+              </span>
+            </div>
+          ))}
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+            className="w-full text-center text-red-400 hover:text-red-600 mt-1"
+          >
+            zavřít ×
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Day cell ──────────────────────────────────────────────────────────────────
 
 function DayCell({
-  events, hasConflict, accentColor,
-}: { events: Event[]; hasConflict: boolean; accentColor: string }) {
-  if (events.length === 0) {
+  events, conflictReasons, accentColor,
+}: { events: Event[]; conflictReasons: ConflictReason[]; accentColor: string }) {
+  const hasConflict = conflictReasons.length > 0;
+
+  if (events.length === 0 && !hasConflict) {
     return (
       <div className="min-h-[60px] flex items-center justify-center text-ink-faint text-xs">—</div>
     );
@@ -131,11 +194,7 @@ function DayCell({
           </Link>
         );
       })}
-      {hasConflict && (
-        <div className="flex items-center gap-1 text-[10px] text-red-600 font-bold px-1">
-          <AlertTriangle size={10} /> Kolize!
-        </div>
-      )}
+      {hasConflict && <CollisionTooltip reasons={conflictReasons} />}
     </div>
   );
 }
@@ -297,6 +356,9 @@ function ColumnPickerSheet({
 
 const LS_KEY = 'kids-timeline-extra-cols';
 
+// Heights: TopBar = 56px (h-14), sub-header ≈ 44px → thead sticks at 100px
+const THEAD_TOP = '100px';
+
 export default function KidsTimelinePage() {
   // Fixed 12-week range: 1 week before today → 11 weeks after
   const rangeStart = useMemo(() => startOfDay(subDays(new Date(), 7)), []);
@@ -408,8 +470,8 @@ export default function KidsTimelinePage() {
             className="w-full border-collapse"
             style={{ minWidth: `${allColumns.length * 90 + 72}px` }}
           >
-            {/* Sticky kid/adult header */}
-            <thead className="sticky z-20" style={{ top: '3.5rem' }}>
+            {/* Sticky kid/adult header — sits below both TopBar and sub-header */}
+            <thead className="sticky z-20" style={{ top: THEAD_TOP }}>
               <tr className="bg-surface-raised border-b-2 border-border shadow-sm">
                 <th className="w-16 text-left px-2 py-1 text-xs font-bold text-ink-muted sticky left-0 bg-surface-raised z-30 border-r border-border">
                   Den
@@ -459,9 +521,25 @@ export default function KidsTimelinePage() {
 
                 // Conflicts only across KID columns
                 const kidColEvents = colEvents.slice(0, kids.length);
-                const conflicts = findConflicts(kidColEvents);
-                const conflictingKids = new Set(conflicts.flatMap(([a, b]) => [a, b]));
-                const dayHasConflict = conflicts.length > 0;
+                const conflictPairs = findConflictPairs(kidColEvents);
+                const dayHasConflict = conflictPairs.length > 0;
+
+                // Per-column conflict reasons for the tooltip
+                const colConflictReasons = allColumns.map((col, colIdx) => {
+                  if (!col.isKid) return [] as ConflictReason[];
+                  return conflictPairs
+                    .filter((p) => p.kidIdxA === colIdx || p.kidIdxB === colIdx)
+                    .map((p): ConflictReason => {
+                      const isA = p.kidIdxA === colIdx;
+                      const otherIdx = isA ? p.kidIdxB : p.kidIdxA;
+                      const otherKid = kids[otherIdx];
+                      return {
+                        otherKidName: otherKid ? (otherKid.nickname ?? otherKid.name.split(' ')[0]) : '?',
+                        myEvent: isA ? p.eventA : p.eventB,
+                        otherEvent: isA ? p.eventB : p.eventA,
+                      };
+                    });
+                });
 
                 return (
                   <React.Fragment key={dayStr}>
@@ -505,7 +583,7 @@ export default function KidsTimelinePage() {
                       {/* One cell per column */}
                       {allColumns.map(({ user, isKid }, colIdx) => {
                         const colEvts = colEvents[colIdx] ?? [];
-                        const hasConflict = isKid && conflictingKids.has(colIdx);
+                        const reasons = colConflictReasons[colIdx] ?? [];
                         const accent = isKid
                           ? ROLE_COLORS['KID']!
                           : (ROLE_COLORS[user.role] ?? '#94a3b8');
@@ -513,7 +591,7 @@ export default function KidsTimelinePage() {
                           <td key={user.id} className="border-l border-border align-top">
                             <DayCell
                               events={colEvts}
-                              hasConflict={hasConflict}
+                              conflictReasons={reasons}
                               accentColor={accent}
                             />
                           </td>
@@ -536,7 +614,7 @@ export default function KidsTimelinePage() {
         <div className="px-4 pt-4 pb-2 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
           <span className="flex items-center gap-1">
             <AlertTriangle size={12} className="text-red-500" />
-            Kolize = akce dětí ve stejný čas
+            Kolize = akce dětí ve stejný čas (klikni pro detail)
           </span>
           <span>• Kliknutím na akci zobrazíš detail</span>
           <span>• Hover na jméno → × pro odebrání sloupce</span>
