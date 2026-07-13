@@ -84,6 +84,8 @@ function findConflictPairs(kidEvents: Event[][]): ConflictPair[] {
     for (let j = i + 1; j < kidEvents.length; j++) {
       for (const ea of kidEvents[i]!) {
         for (const eb of kidEvents[j]!) {
+          // Same event shared by both kids — not a conflict
+          if (ea.id === eb.id) continue;
           if (overlaps(ea, eb)) {
             pairs.push({ kidIdxA: i, kidIdxB: j, eventA: ea, eventB: eb });
           }
