@@ -556,6 +556,32 @@ export const EVENT_TYPES_SEED: EventTypeSeed[] = [
     sortOrder: 72,
   },
 
+  // ── Tennis ────────────────────────────────────────────
+  {
+    slug: 'tenis-trening',
+    nameCs: 'Trénink tenis',
+    nameEn: 'Tennis training',
+    icon: '🎾',
+    color: '#84cc16',
+    groupCs: 'Tenis',
+    groupEn: 'Tennis',
+    defaultDurationMinutes: 60,
+    defaultReminderMinutes: 60,
+    sortOrder: 45,
+  },
+  {
+    slug: 'tenis-turnaj',
+    nameCs: 'Turnaj tenis',
+    nameEn: 'Tennis tournament',
+    icon: '🏆',
+    color: '#eab308',
+    groupCs: 'Tenis',
+    groupEn: 'Tennis',
+    defaultDurationMinutes: 240,
+    defaultReminderMinutes: 1440,
+    sortOrder: 46,
+  },
+
   // ── Other ─────────────────────────────────────────────
   {
     slug: 'ostatni',
