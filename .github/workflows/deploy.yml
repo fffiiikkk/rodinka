@@ -132,8 +132,10 @@ jobs:
           sleep 8
 
           # Run any pending migrations in a disposable container
+          # -T disables stdin passthrough — without it, docker compose run reads
+          # the remaining heredoc as its stdin and swallows all subsequent commands.
           docker compose -f docker-compose.prod.yml --env-file .env.prod \
-            run --rm --no-deps app \
+            run --rm --no-deps -T app \
             sh -c "cd packages/backend && npx prisma migrate deploy"
 
           # Read credentials from .env.prod so we can pass them explicitly to docker run
