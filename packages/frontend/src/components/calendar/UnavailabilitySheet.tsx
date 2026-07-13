@@ -126,14 +126,22 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode,
   const [note, setNote]                 = useState(editItem?.note ?? '');
   const [externalName, setExternalName] = useState(editItem?.externalName ?? '');
   const [externalRole, setExternalRole] = useState(editItem?.externalRole ?? '');
-  // Admin: target user (for creating on behalf of someone)
-  const [targetUserId, setTargetUserId] = useState<string>(editItem?.userId ?? user?.id ?? '');
-  const [saving, setSaving]             = useState(false);
+  // Admin: one or more target users — default to current user
+  const [targetUserIds, setTargetUserIds] = useState<string[]>(
+    editItem?.userId ? [editItem.userId] : (user?.id ? [user.id] : []),
+  );
+  const [saving, setSaving] = useState(false);
 
-  // If adminUsers changes, reset targetUserId to current user
+  // Reset selection when sheet opens fresh (non-edit)
   useEffect(() => {
-    if (!isEdit) setTargetUserId(user?.id ?? '');
+    if (!isEdit && user?.id) setTargetUserIds([user.id]);
   }, [isEdit, user?.id]);
+
+  const toggleUser = (id: string) => {
+    setTargetUserIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
 
   const cfg = MODE_CONFIG[mode];
 
@@ -146,7 +154,6 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode,
       const to   = new Date(`${dateTo}T23:59:59`);
 
       if (isEdit && editItem) {
-        // Update existing record
         await update.mutateAsync({
           id: editItem.id,
           data: {
@@ -171,14 +178,20 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode,
         });
         toast(`✅ ${externalName} přidán/a jako výpomoc`, 'success');
       } else {
-        await create.mutateAsync({
-          dateFrom: from.toISOString(), dateTo: to.toISOString(),
-          status: mode === 'unavailable' ? 'UNAVAILABLE' : 'AVAILABLE',
-          note: note || undefined,
-          // Admin creating for another user
-          ...(isAdmin && targetUserId && targetUserId !== user?.id ? { userId: targetUserId } : {}),
-        } as any);
-        toast(cfg.toast, 'success');
+        // Create one record per selected user (admin may pick multiple)
+        const usersToCreate = isAdmin && targetUserIds.length > 0 ? targetUserIds : [user?.id ?? ''];
+        await Promise.all(
+          usersToCreate.map((uid) =>
+            create.mutateAsync({
+              dateFrom: from.toISOString(), dateTo: to.toISOString(),
+              status: mode === 'unavailable' ? 'UNAVAILABLE' : 'AVAILABLE',
+              note: note || undefined,
+              ...(uid && uid !== user?.id ? { userId: uid } : {}),
+            } as any),
+          ),
+        );
+        const count = usersToCreate.length;
+        toast(count > 1 ? `✅ Záznam vytvořen pro ${count} osoby` : cfg.toast, 'success');
       }
       onClose();
     } catch { toast('Chyba při ukládání', 'error'); }
@@ -190,9 +203,11 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode,
     ? ['unavailable', 'available', 'external']
     : ['unavailable', 'available'];
 
-  // Whose availability is this for (display)
-  const targetUserName = adminUsers?.find((u) => u.id === targetUserId)?.name
-    ?? (targetUserId === user?.id ? (user?.name ?? 'já') : '');
+  // All selectable users for admin multi-picker (self first, then others)
+  const allSelectableUsers: AdminUser[] = [
+    ...(user ? [{ id: user.id, name: `Já (${user.name})` }] : []),
+    ...(adminUsers ?? []),
+  ];
 
   return (
     <form onSubmit={handleSubmit} className="p-4 space-y-4">
@@ -220,20 +235,35 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode,
         </div>
       )}
 
-      {/* Admin: user selector (non-external modes only) */}
-      {isAdmin && !isEdit && mode !== 'external' && adminUsers && adminUsers.length > 0 && (
+      {/* Admin: multi-user picker (non-external modes only) */}
+      {isAdmin && !isEdit && mode !== 'external' && allSelectableUsers.length > 1 && (
         <div>
-          <label className="label">Pro koho</label>
-          <select
-            className="input"
-            value={targetUserId}
-            onChange={(e) => setTargetUserId(e.target.value)}
-          >
-            <option value={user?.id ?? ''}>Já ({user?.name})</option>
-            {adminUsers.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
+          <label className="label">
+            Pro koho
+            {targetUserIds.length > 1 && (
+              <span className="ml-1.5 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                {targetUserIds.length} osob
+              </span>
+            )}
+          </label>
+          <div className="space-y-1 rounded-xl border border-border overflow-hidden">
+            {allSelectableUsers.map((u) => (
+              <label
+                key={u.id}
+                className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors ${
+                  targetUserIds.includes(u.id) ? 'bg-primary/8 text-primary' : 'hover:bg-surface-raised text-ink'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={targetUserIds.includes(u.id)}
+                  onChange={() => toggleUser(u.id)}
+                  className="w-4 h-4 accent-primary shrink-0"
+                />
+                <span className="text-sm font-medium">{u.name}</span>
+              </label>
             ))}
-          </select>
+          </div>
         </div>
       )}
 
@@ -241,7 +271,7 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode,
       {isEdit && (
         <div className="flex items-center gap-2 p-2.5 rounded-xl bg-surface-raised border border-border text-sm">
           <span className="text-ink-muted">Záznam pro:</span>
-          <span className="font-semibold text-ink">{editItem?.userName ?? targetUserName}</span>
+          <span className="font-semibold text-ink">{editItem?.userName ?? user?.name ?? ''}</span>
         </div>
       )}
 
@@ -282,9 +312,11 @@ export default function UnavailabilitySheet({ onClose, defaultDate, initialMode,
         <div className="flex items-start gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
           <CalendarCheck size={18} className="shrink-0 mt-0.5" />
           <p>
-            {isAdmin && targetUserId !== user?.id && targetUserName
-              ? <><strong>{targetUserName}</strong> oznámí dostupnost pro hlídání v tomto období.</>
-              : <>Oznámuješ, že <strong>jsi k dispozici</strong> pro hlídání dětí v tomto období — i když normálně ne.</>
+            {isAdmin && targetUserIds.length > 1
+              ? <>Dostupnost bude nastavena pro <strong>{targetUserIds.length} osoby</strong>.</>
+              : isAdmin && targetUserIds.length === 1 && targetUserIds[0] !== user?.id
+                ? <><strong>{allSelectableUsers.find((u) => u.id === targetUserIds[0])?.name}</strong> oznámí dostupnost pro hlídání v tomto období.</>
+                : <>Oznámuješ, že <strong>jsi k dispozici</strong> pro hlídání dětí v tomto období — i když normálně ne.</>
             }
           </p>
         </div>
