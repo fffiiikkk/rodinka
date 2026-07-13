@@ -15,6 +15,39 @@ import RecurrenceEditor from './RecurrenceEditor.js';
 type TransportMode = 'none' | 'user' | 'external' | 'self';
 type TransportDirection = 'BOTH' | 'THERE' | 'BACK';
 
+const ROLE_LABEL_CS: Record<string, string> = {
+  PARENT:      'rodič',
+  GRANDPARENT: 'prarodič',
+  RELATIVE:    'příbuzný',
+  KID:         'dítě',
+  GUEST:       'host',
+};
+
+function userAge(dateOfBirth: string | null | undefined): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+  return age;
+}
+
+/** Single user row used in participant + transport pickers */
+function UserPickerRow({ u }: { u: any }) {
+  const age = userAge(u.dateOfBirth);
+  const label = ROLE_LABEL_CS[u.role] ?? u.role;
+  const displayName = u.nickname ? `${u.nickname} (${u.name})` : u.name;
+  return (
+    <span className="flex flex-col min-w-0">
+      <span className="text-xs font-semibold text-ink truncate leading-tight">{displayName}</span>
+      <span className="text-[10px] text-ink-faint leading-tight truncate">
+        {label}{age !== null ? ` · ${age} let` : ''}{u.relationship ? ` · ${u.relationship}` : ''}
+      </span>
+    </span>
+  );
+}
+
 interface OccurrenceSlot {
   startDate: string;
   startTime: string;
@@ -467,7 +500,7 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
           {showParticipants && (
             <div className="pl-4 grid grid-cols-2 gap-1">
               {usersData.filter((u: any) => u.isActive && u.role !== 'GUEST').map((u: any) => (
-                <label key={u.id} className="flex items-center gap-1.5 cursor-pointer py-1 px-2 rounded-lg hover:bg-surface-raised transition-colors">
+                <label key={u.id} className="flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-lg hover:bg-surface-raised transition-colors">
                   <input
                     type="checkbox"
                     checked={participantIds.includes(u.id)}
@@ -475,9 +508,9 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
                       if (e.target.checked) setParticipantIds((p) => [...p, u.id]);
                       else setParticipantIds((p) => p.filter((id) => id !== u.id));
                     }}
-                    className="w-3.5 h-3.5 accent-primary"
+                    className="w-3.5 h-3.5 accent-primary shrink-0"
                   />
-                  <span className="text-xs text-ink truncate">{u.name}</span>
+                  <UserPickerRow u={u} />
                 </label>
               ))}
             </div>
@@ -534,12 +567,23 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
                 ))}
               </div>
               {transportMode === 'user' && usersData && (
-                <select className="input text-sm" value={transportUserId} onChange={(e) => setTransportUserId(e.target.value)}>
-                  <option value="">— vyber osobu —</option>
+                <div className="space-y-0.5 rounded-xl border border-border overflow-hidden">
                   {usersData.filter((u: any) => u.isActive).map((u: any) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => setTransportUserId(u.id)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
+                        transportUserId === u.id
+                          ? 'bg-primary/10 text-primary'
+                          : 'hover:bg-surface-raised text-ink'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${transportUserId === u.id ? 'bg-primary' : 'bg-border'}`} />
+                      <UserPickerRow u={u} />
+                    </button>
                   ))}
-                </select>
+                </div>
               )}
               {transportMode === 'external' && (
                 <input className="input text-sm" placeholder="Jméno osoby…" value={transportExternalName} onChange={(e) => setTransportExternalName(e.target.value)} />
