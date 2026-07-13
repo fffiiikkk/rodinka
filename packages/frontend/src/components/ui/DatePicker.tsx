@@ -51,12 +51,16 @@ function weekday(d: Date) {
   return (d.getDay() + 6) % 7;
 }
 
+// Approximate rendered height of the calendar panel (header + grid + quick buttons)
+const PANEL_H = 340;
+const PANEL_W = 288; // w-72
+
 export default function DatePicker({ value, onChange, min, max, placeholder = 'Vyber datum' }: Props) {
   const today = toYMD(new Date());
   const selected = parseDate(value);
 
   const [open, setOpen] = useState(false);
-  const [alignRight, setAlignRight] = useState(false);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
   const [viewYear, setViewYear]   = useState(() => selected?.getFullYear()  ?? new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(() => selected?.getMonth()     ?? new Date().getMonth());
   const ref = useRef<HTMLDivElement>(null);
@@ -66,11 +70,25 @@ export default function DatePicker({ value, onChange, min, max, placeholder = 'V
     if (selected) { setViewYear(selected.getFullYear()); setViewMonth(selected.getMonth()); }
   }, [value]);
 
-  // Position dropdown
+  // Compute fixed position that keeps the panel fully inside the viewport
   useEffect(() => {
     if (!open || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    setAlignRight(window.innerWidth - rect.left < 300);
+    const trigger = ref.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Horizontal: prefer left-aligned with trigger, clamp to viewport
+    let left = trigger.left;
+    if (left + PANEL_W > vw - 8) left = vw - PANEL_W - 8;
+    if (left < 8) left = 8;
+
+    // Vertical: open below trigger if room, otherwise open above
+    const spaceBelow = vh - trigger.bottom;
+    const top = spaceBelow >= PANEL_H + 8
+      ? trigger.bottom + 4
+      : Math.max(8, trigger.top - PANEL_H - 4);
+
+    setPanelStyle({ position: 'fixed', top, left, width: PANEL_W, zIndex: 9999 });
   }, [open]);
 
   // Close on outside click
@@ -130,11 +148,14 @@ export default function DatePicker({ value, onChange, min, max, placeholder = 'V
         )}
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown — rendered with fixed positioning to avoid viewport clipping */}
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className={`absolute z-50 mt-2 w-72 bg-surface rounded-2xl shadow-modal border border-border overflow-hidden ${alignRight ? 'right-0' : 'left-0'}`}>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div
+            className="bg-surface rounded-2xl shadow-modal border border-border overflow-hidden"
+            style={panelStyle}
+          >
 
             {/* Month navigation */}
             <div className="flex items-center justify-between px-3 pt-3 pb-2">

@@ -25,20 +25,32 @@ function parseTime(val: string): [number, number] {
   return [isNaN(h) ? 9 : h, isNaN(m) ? 0 : m];
 }
 
+const TIME_PANEL_H = 320; // approximate rendered height
+const TIME_PANEL_W = 288; // w-72
+
 export default function TimePicker({ value, onChange, label }: Props) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'drum' | 'quick'>('drum');
-  const [alignRight, setAlignRight] = useState(true);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
   const ref = useRef<HTMLDivElement>(null);
 
-  // Decide dropdown alignment based on available space when opening
+  // Compute fixed viewport-aware position when opening
   useEffect(() => {
     if (!open || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const dropdownWidth = 288; // w-72
-    // If enough space to the right, align left; otherwise align right
-    const spaceRight = window.innerWidth - rect.left;
-    setAlignRight(spaceRight < dropdownWidth + 16);
+    const trigger = ref.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let left = trigger.left;
+    if (left + TIME_PANEL_W > vw - 8) left = vw - TIME_PANEL_W - 8;
+    if (left < 8) left = 8;
+
+    const spaceBelow = vh - trigger.bottom;
+    const top = spaceBelow >= TIME_PANEL_H + 8
+      ? trigger.bottom + 4
+      : Math.max(8, trigger.top - TIME_PANEL_H - 4);
+
+    setPanelStyle({ position: 'fixed', top, left, width: TIME_PANEL_W, zIndex: 9999 });
   }, [open]);
 
   const [h, m] = parseTime(value);
@@ -87,9 +99,12 @@ export default function TimePicker({ value, onChange, label }: Props) {
       {open && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
 
-          <div className={`absolute z-50 mt-2 w-72 bg-surface rounded-2xl shadow-modal border border-border overflow-hidden ${alignRight ? 'right-0' : 'left-0'}`}>
+          <div
+            className="bg-surface rounded-2xl shadow-modal border border-border overflow-hidden"
+            style={panelStyle}
+          >
             {/* Tabs */}
             <div className="flex border-b border-border">
               {(['drum', 'quick'] as const).map((t) => (
