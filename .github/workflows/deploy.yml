@@ -131,12 +131,11 @@ jobs:
           docker compose -f docker-compose.prod.yml --env-file .env.prod up -d postgres
           sleep 8
 
-          # Run any pending migrations in a disposable container
-          # -T disables stdin passthrough — without it, docker compose run reads
-          # the remaining heredoc as its stdin and swallows all subsequent commands.
-          docker compose -f docker-compose.prod.yml --env-file .env.prod \
-            run --rm --no-deps -T app \
-            sh -c "cd packages/backend && npx prisma migrate deploy"
+          # NOTE: We do NOT run a separate migration step here.
+          # docker compose run reads the remaining heredoc content as stdin even with -T,
+          # swallowing all subsequent commands and silently skipping docker run.
+          # Instead, the app container CMD already runs: prisma migrate deploy && node dist/index.js
+          # so migrations run automatically on container startup.
 
           # Read credentials from .env.prod so we can pass them explicitly to docker run
           DB_PASSWORD=$(grep '^DB_PASSWORD=' .env.prod | cut -d'=' -f2-)
