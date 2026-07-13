@@ -798,7 +798,7 @@ function MonthGrid({ events, availability, layer, currentDate, currentUserId, is
           return (
             <div key={weekIdx} className={weekIdx > 0 ? 'border-t border-border' : ''}>
 
-              {/* Availability spanning bars */}
+              {/* Availability spanning bars — above day cells */}
               {weekAvail.length > 0 && (
                 <div className="px-px bg-surface/60 border-b border-border/40">
                   <AvailabilityBars
@@ -809,63 +809,6 @@ function MonthGrid({ events, availability, layer, currentDate, currentUserId, is
                     onEdit={onEditAvail}
                     onDelete={onDeleteAvail}
                   />
-                </div>
-              )}
-
-              {/* Spanning events bar */}
-              {spanAreaHeight > 0 && (
-                <div className="relative bg-surface px-px" style={{ height: `${spanAreaHeight}px` }}>
-                  {spanningLayouts.map(({ event, colStart, colEnd, startsHere, endsHere, lane }) => {
-                    const color = event.eventType?.color ?? event.colorOverride ?? '#a3a3a3';
-                    const navId = (event as any).originalId ?? event.id;
-                    const leftPct = `${(colStart / 7) * 100}%`;
-                    const rightPct = `${((6 - colEnd) / 7) * 100}%`;
-                    const rTL = startsHere ? 6 : 0;
-                    const rTR = endsHere ? 6 : 0;
-                    return (
-                      <a
-                        key={`${event.id}-w${weekIdx}`}
-                        href={`/event/${navId}`}
-                        className="absolute flex items-center overflow-hidden text-[11px] font-bold hover:brightness-90 active:scale-[0.99] transition-all select-none shadow-sm"
-                        style={{
-                          left: leftPct,
-                          right: rightPct,
-                          top: `${lane * LANE_H + 3}px`,
-                          height: `${LANE_H - 4}px`,
-                          background: color + '48',
-                          color,
-                          borderLeft: startsHere ? `3px solid ${color}` : `2px solid ${color}80`,
-                          borderRadius: `${rTL}px ${rTR}px ${rTR}px ${rTL}px`,
-                          paddingLeft: startsHere ? '6px' : '3px',
-                          paddingRight: '4px',
-                        }}
-                      >
-                        <span className={`truncate flex-1 ${!startsHere ? 'opacity-60' : ''}`}>
-                          {startsHere ? `${safeIcon(event.eventType?.icon)} ${event.title}` : `↳ ${event.title}`}
-                        </span>
-                        {startsHere && event.participants.length > 0 && (
-                          <span className="flex items-center gap-[2px] shrink-0 mx-1">
-                            {event.participants.slice(0, 3).map((p) => (
-                              <span
-                                key={p.userId}
-                                title={p.name}
-                                className="w-3.5 h-3.5 rounded-full text-white text-[7px] font-bold flex items-center justify-center ring-1 ring-white/50 shrink-0"
-                                style={{ background: p.role === 'KID' ? '#8b5cf6' : '#0ea5e9' }}
-                              >
-                                {p.name.slice(0, 1).toUpperCase()}
-                              </span>
-                            ))}
-                            {event.participants.length > 3 && (
-                              <span className="text-[8px] font-bold opacity-70">+{event.participants.length - 3}</span>
-                            )}
-                          </span>
-                        )}
-                        {!endsHere && (
-                          <span className="ml-auto shrink-0 text-base leading-none opacity-70 pr-0.5">›</span>
-                        )}
-                      </a>
-                    );
-                  })}
                 </div>
               )}
 
@@ -943,6 +886,63 @@ function MonthGrid({ events, availability, layer, currentDate, currentUserId, is
                   );
                 })}
               </div>
+
+              {/* Multi-day spanning event bars — below day cells */}
+              {spanAreaHeight > 0 && (
+                <div className="relative border-t border-border/40 bg-surface/50 px-px" style={{ height: `${spanAreaHeight}px` }}>
+                  {spanningLayouts.map(({ event, colStart, colEnd, startsHere, endsHere, lane }) => {
+                    const color = event.eventType?.color ?? event.colorOverride ?? '#a3a3a3';
+                    const navId = (event as any).originalId ?? event.id;
+                    const leftPct = `${(colStart / 7) * 100}%`;
+                    const rightPct = `${((6 - colEnd) / 7) * 100}%`;
+                    const rTL = startsHere ? 6 : 0;
+                    const rTR = endsHere   ? 6 : 0;
+                    return (
+                      <a
+                        key={`${event.id}-w${weekIdx}`}
+                        href={`/event/${navId}`}
+                        className="absolute flex items-center overflow-hidden text-[11px] font-bold hover:brightness-90 active:scale-[0.99] transition-all select-none shadow-sm"
+                        style={{
+                          left: leftPct,
+                          right: rightPct,
+                          top: `${lane * LANE_H + 3}px`,
+                          height: `${LANE_H - 4}px`,
+                          background: color + '48',
+                          color,
+                          borderLeft: startsHere ? `3px solid ${color}` : `2px solid ${color}80`,
+                          borderRadius: `${rTL}px ${rTR}px ${rTR}px ${rTL}px`,
+                          paddingLeft: startsHere ? '6px' : '3px',
+                          paddingRight: '4px',
+                        }}
+                      >
+                        <span className={`truncate flex-1 ${!startsHere ? 'opacity-60' : ''}`}>
+                          {startsHere ? `${safeIcon(event.eventType?.icon)} ${event.title}` : `↳ ${event.title}`}
+                        </span>
+                        {startsHere && event.participants.length > 0 && (
+                          <span className="flex items-center gap-[2px] shrink-0 mx-1">
+                            {event.participants.slice(0, 3).map((p) => (
+                              <span
+                                key={p.userId}
+                                title={p.name}
+                                className="w-3.5 h-3.5 rounded-full text-white text-[7px] font-bold flex items-center justify-center ring-1 ring-white/50 shrink-0"
+                                style={{ background: p.role === 'KID' ? '#8b5cf6' : '#0ea5e9' }}
+                              >
+                                {p.name.slice(0, 1).toUpperCase()}
+                              </span>
+                            ))}
+                            {event.participants.length > 3 && (
+                              <span className="text-[8px] font-bold opacity-70">+{event.participants.length - 3}</span>
+                            )}
+                          </span>
+                        )}
+                        {!endsHere && (
+                          <span className="ml-auto shrink-0 text-base leading-none opacity-70 pr-0.5">›</span>
+                        )}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
