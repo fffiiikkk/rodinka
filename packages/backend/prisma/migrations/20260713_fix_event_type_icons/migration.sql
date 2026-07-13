@@ -14,9 +14,9 @@ WHERE  icon = 'Tenis'
 -- tenis-trening
 INSERT INTO "EventType" (id, slug, "nameCs", "nameEn", icon, color, "groupCs", "groupEn",
                           "defaultDurationMinutes", "defaultReminderMinutes", "sortOrder",
-                          "isActive", "createdAt", "updatedAt")
+                          "isActive", "createdAt")
 VALUES (gen_random_uuid(), 'tenis-trening', 'Trénink tenis', 'Tennis training',
-        '🎾', '#84cc16', 'Tenis', 'Tennis', 60, 60, 45, true, now(), now())
+        '🎾', '#84cc16', 'Tenis', 'Tennis', 60, 60, 45, true, now())
 ON CONFLICT (slug) DO UPDATE
   SET icon  = EXCLUDED.icon,
       color = EXCLUDED.color,
@@ -27,9 +27,9 @@ ON CONFLICT (slug) DO UPDATE
 -- tenis-turnaj
 INSERT INTO "EventType" (id, slug, "nameCs", "nameEn", icon, color, "groupCs", "groupEn",
                           "defaultDurationMinutes", "defaultReminderMinutes", "sortOrder",
-                          "isActive", "createdAt", "updatedAt")
+                          "isActive", "createdAt")
 VALUES (gen_random_uuid(), 'tenis-turnaj', 'Turnaj tenis', 'Tennis tournament',
-        '🏆', '#eab308', 'Tenis', 'Tennis', 240, 1440, 46, true, now(), now())
+        '🏆', '#eab308', 'Tenis', 'Tennis', 240, 1440, 46, true, now())
 ON CONFLICT (slug) DO UPDATE
   SET icon  = EXCLUDED.icon,
       color = EXCLUDED.color,
