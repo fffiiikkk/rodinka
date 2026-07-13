@@ -147,6 +147,14 @@ jobs:
           # Ensure the docker volume for uploads exists
           docker volume create rodinka_uploads 2>/dev/null || true
 
+          # Fix upload directory ownership — the volume is created by root but the
+          # app container runs as node (uid 1000). Run a one-shot root container to
+          # chown the volume contents so the node user can write files.
+          docker run --rm \
+            -v rodinka_uploads:/mnt/uploads \
+            alpine:3.19 \
+            sh -c "chown -R 1000:1000 /mnt/uploads && chmod -R 755 /mnt/uploads && echo 'Upload dir permissions fixed'"
+
           # Explicitly stop and remove any existing app container, then create fresh
           # (avoid docker compose --force-recreate which may be interfered with by Synology Container Manager)
           docker stop rodinka_app 2>/dev/null || true
