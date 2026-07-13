@@ -34,6 +34,7 @@ interface UserRow {
 }
 
 interface EditState {
+  username: string;
   name: string;
   nickname: string;
   email: string;
@@ -71,6 +72,7 @@ export default function UsersAdmin() {
   const openEdit = async (user: UserRow) => {
     setEditingUser(user);
     setForm({
+      username: user.username,
       name: user.name,
       nickname: user.nickname ?? '',
       email: user.email,
@@ -107,6 +109,7 @@ export default function UsersAdmin() {
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
+        username: form.username.trim() || undefined,
         name: form.name,
         nickname: form.nickname || null,
         email: form.email,
@@ -254,6 +257,20 @@ export default function UsersAdmin() {
       <Sheet open={!!editingUser} onClose={closeEdit} title={`Upravit: ${editingUser?.name ?? ''}`}>
         {form && (
           <div className="p-4 space-y-4">
+            {/* Username */}
+            <div>
+              <label className="block text-xs font-semibold text-ink-muted mb-1">
+                Uživatelské jméno
+                <span className="font-normal text-ink-faint ml-1">(pro přihlášení, pouze písmena/číslice/-/_)</span>
+              </label>
+              <input
+                className="input w-full font-mono"
+                placeholder="pr. jan_kratochvil"
+                value={form.username}
+                onChange={(e) => set('username', e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+              />
+            </div>
+
             {/* Name */}
             <div>
               <label className="block text-xs font-semibold text-ink-muted mb-1">

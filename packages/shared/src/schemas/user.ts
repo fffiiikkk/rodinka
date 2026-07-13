@@ -55,6 +55,7 @@ export const UpdateUserSchema = z.object({
 });
 
 export const AdminUpdateUserSchema = UpdateUserSchema.extend({
+  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/, 'Only letters, numbers, _ and - allowed').optional(),
   role: RoleSchema.optional(),
   isActive: z.boolean().optional(),
   relationship: z.string().max(100).nullable().optional(),

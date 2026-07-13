@@ -182,6 +182,13 @@ export const userService = {
 
   async adminUpdate(id: string, data: AdminUpdateUserInput, adminId: string) {
     const before = await prisma.user.findUniqueOrThrow({ where: { id }, select: SELECT });
+
+    // If username is being changed, verify it is not already taken
+    if (data.username && data.username !== before.username) {
+      const existing = await prisma.user.findUnique({ where: { username: data.username } });
+      if (existing) throw createError(409, `Uživatelské jméno "${data.username}" je již obsazeno`, 'USERNAME_TAKEN');
+    }
+
     const user = await prisma.user.update({
       where: { id },
       data: {
