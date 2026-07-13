@@ -135,6 +135,15 @@ export const availabilityService = {
       );
       if (dayEvents.length === 0) continue;
 
+      // Only flag events where supervision is explicitly NOT covered:
+      //   transportCoversSupervision === false means transport person said they WON'T cover
+      //   transportCoversSupervision === null  means "not necessary" or auto-covered by transport
+      //   transportCoversSupervision === true  means transport person WILL cover
+      // An event needs a guardian only when transportCoversSupervision is explicitly false.
+      const uncoveredEvents = dayEvents.filter((e) => e.transportCoversSupervision === false);
+
+      if (uncoveredEvents.length === 0) continue;
+
       const guardians = avails
         .filter((a) => a.dateFrom <= day && a.dateTo >= day)
         .map((a) => a.user.name);
@@ -142,7 +151,7 @@ export const availabilityService = {
       if (guardians.length === 0) {
         gaps.push({
           date: dayStr,
-          events: dayEvents.map((e) => ({
+          events: uncoveredEvents.map((e) => ({
             id: e.id,
             title: e.title,
             participantNames: e.participants.filter((p) => p.user.role === 'KID').map((p) => p.user.name),
