@@ -113,11 +113,19 @@ jobs:
           fi
 
           # Log in to GHCR using the CI workflow's token (read-only pull)
-          echo "${{ secrets.GITHUB_TOKEN }}" | \
-            docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          for attempt in 1 2 3; do
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.actor }} --password-stdin && break
+            echo "docker login attempt $attempt failed, retrying in 10s..."
+            sleep 10
+          done
 
-          # Pull the image already built and pushed by the CI workflow
-          docker pull ${{ env.IMAGE }}:latest
+          # Pull the image already built and pushed by the CI workflow (retry on network glitch)
+          for attempt in 1 2 3; do
+            docker pull ${{ env.IMAGE }}:latest && break
+            echo "docker pull attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
 
           # Ensure DB is running (idempotent)
           docker compose -f docker-compose.prod.yml --env-file .env.prod up -d postgres
