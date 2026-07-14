@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Calendar, Users, Paperclip, ChevronLeft, Check, X, Car, Pencil, Loader2, Copy, RefreshCw } from 'lucide-react';
+import { MapPin, Calendar, Users, Paperclip, ChevronLeft, Check, X, Car, Pencil, Loader2, Copy, RefreshCw, Video, ExternalLink } from 'lucide-react';
 import { useEvent, useApproveEvent, useRejectEvent, useCancelEvent, useCreateEvent, useCancelOccurrence } from '../hooks/useEvents.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { formatDateTime } from '../lib/dates.js';
@@ -10,7 +10,21 @@ import Avatar from '../components/ui/Avatar.js';
 import Sheet from '../components/ui/Sheet.js';
 import EventForm from '../components/events/EventForm.js';
 import DatePicker from '../components/ui/DatePicker.js';
+import LocationMap from '../components/ui/LocationMap.js';
 import { format } from 'date-fns';
+
+const MEETING_LABELS: Record<string, string> = {
+  GOOGLE_MEET: 'Google Meet',
+  TEAMS: 'Microsoft Teams',
+  ZOOM: 'Zoom',
+  OTHER: 'Online schůzka',
+};
+const MEETING_COLORS: Record<string, string> = {
+  GOOGLE_MEET: '#00897b',
+  TEAMS: '#6264a7',
+  ZOOM: '#2d8cff',
+  OTHER: '#64748b',
+};
 
 /** Dialog that asks whether to apply an action to one occurrence or the whole series */
 function OccurrenceChoiceDialog({
@@ -163,6 +177,16 @@ export default function EventDetailPage() {
             <RefreshCw size={10} /> Série
           </span>
         )}
+        {(event as any).isExternalImport && (
+          <span className="text-[10px] font-bold px-2 py-1 rounded-full shrink-0 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center gap-1">
+            🔗 Externí
+          </span>
+        )}
+        {(event as any).scheduleImportId && (
+          <span className="text-[10px] font-bold px-2 py-1 rounded-full shrink-0 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+            🏫 Rozvrh
+          </span>
+        )}
         {!isRecurringSeries && event.status !== 'APPROVED' && (
           <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${
             event.status === 'PROPOSED' ? 'bg-warning/15 text-warning' : 'bg-danger/15 text-danger'
@@ -199,9 +223,38 @@ export default function EventDetailPage() {
 
         {/* Location */}
         {event.location && (
-          <div className="flex items-center gap-2.5 px-3 py-2.5">
-            <MapPin size={15} className="text-primary shrink-0" />
-            <p className="text-sm text-ink truncate">{event.location}</p>
+          <div className="px-3 py-2.5">
+            <div className="flex items-center gap-2.5 mb-2">
+              <MapPin size={15} className="text-primary shrink-0" />
+              <p className="text-sm text-ink truncate">{event.location}</p>
+            </div>
+            {(event as any).locationLat != null && (event as any).locationLng != null && (
+              <LocationMap
+                lat={(event as any).locationLat}
+                lng={(event as any).locationLng}
+                label={event.location}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Online meeting join button */}
+        {(event as any).meetingUrl && (
+          <div className="px-3 py-2.5">
+            <a
+              href={(event as any).meetingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all hover:opacity-90"
+              style={{
+                background: MEETING_COLORS[(event as any).meetingProvider] ?? '#64748b',
+                color: '#ffffff',
+              }}
+            >
+              <Video size={16} />
+              Připojit se — {MEETING_LABELS[(event as any).meetingProvider] ?? 'Online schůzka'}
+              <ExternalLink size={14} className="opacity-70" />
+            </a>
           </div>
         )}
 

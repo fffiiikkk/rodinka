@@ -5,13 +5,14 @@ import { useCreateEvent, useUpdateEvent, useCreateException } from '../../hooks/
 import { useAuth } from '../../hooks/useAuth.js';
 import { api } from '../../lib/api.js';
 import { format, addMinutes, differenceInMinutes } from 'date-fns';
-import { Car, ChevronDown, ChevronRight, Plus, Trash2, Users } from 'lucide-react';
+import { Car, ChevronDown, ChevronRight, Plus, Trash2, Users, MapPin, Video } from 'lucide-react';
 import type { Event, EventType } from '@rodinkal/shared';
 import { useToast } from '../ui/Toast.js';
 import TimePicker from '../ui/TimePicker.js';
 import DatePicker from '../ui/DatePicker.js';
 import RecurrenceEditor from './RecurrenceEditor.js';
 import { UserPickerRow } from '../ui/UserPickerRow.js';
+import { LocationMapPicker } from '../ui/LocationMap.js';
 
 type TransportMode = 'none' | 'user' | 'external' | 'self';
 type TransportDirection = 'BOTH' | 'THERE' | 'BACK';
@@ -76,6 +77,16 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
     initialValues ? format(new Date(initialValues.end), 'HH:mm') : format(defaultEnd, 'HH:mm'),
   );
   const [location, setLocation] = useState(initialValues?.location ?? '');
+  const [locationLat, setLocationLat] = useState<number | null>((initialValues as any)?.locationLat ?? null);
+  const [locationLng, setLocationLng] = useState<number | null>((initialValues as any)?.locationLng ?? null);
+  const [showMap, setShowMap] = useState(!!(initialValues as any)?.locationLat);
+  const [geocoding, setGeocoding] = useState(false);
+
+  // Online meeting
+  const [meetingUrl, setMeetingUrl] = useState((initialValues as any)?.meetingUrl ?? '');
+  const [meetingProvider, setMeetingProvider] = useState<string | null>((initialValues as any)?.meetingProvider ?? null);
+  const [showMeeting, setShowMeeting] = useState(!!(initialValues as any)?.meetingUrl);
+
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [allDay, setAllDay] = useState(initialValues?.allDay ?? false);
   const [participantIds, setParticipantIds] = useState<string[]>(
@@ -188,6 +199,10 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
       : new Date(overrideEnd ?? endISO).toISOString(),
     allDay,
     location: location || undefined,
+    locationLat: locationLat ?? undefined,
+    locationLng: locationLng ?? undefined,
+    meetingProvider: meetingProvider || undefined,
+    meetingUrl: meetingUrl || undefined,
     recurrenceRule: recurrenceRule || undefined,
     participantIds,
     transportUserId: transportMode === 'user' ? (transportUserId || undefined) :
@@ -197,6 +212,43 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
     transportDirection: transportMode !== 'none' ? transportDirection : undefined,
     transportCoversSupervision: transportMode !== 'none' ? (transportCoversSupervision ?? undefined) : undefined,
   });
+
+  async function handleGeocode() {
+    if (!location.trim()) return;
+    setGeocoding(true);
+    try {
+      const result = await api.post<{ lat: number; lng: number; displayName: string } | null>(
+        '/geocode', { address: location }
+      );
+      if (result) {
+        setLocationLat(result.lat);
+        setLocationLng(result.lng);
+        setShowMap(true);
+      } else {
+        toast('📍 Místo nenalezeno', 'warning');
+      }
+    } catch {
+      toast('📍 Geokódování selhalo', 'error');
+    } finally {
+      setGeocoding(false);
+    }
+  }
+
+  function detectMeetingProvider(url: string): string | null {
+    if (!url) return null;
+    if (url.includes('meet.google.com')) return 'GOOGLE_MEET';
+    if (url.includes('teams.microsoft.com') || url.includes('teams.live.com')) return 'TEAMS';
+    if (url.includes('zoom.us')) return 'ZOOM';
+    if (url.trim()) return 'OTHER';
+    return null;
+  }
+
+  const MEETING_LABELS: Record<string, { label: string; color: string; emoji: string }> = {
+    GOOGLE_MEET: { label: 'Google Meet', color: '#00897b', emoji: '🎥' },
+    TEAMS: { label: 'Microsoft Teams', color: '#6264a7', emoji: '👥' },
+    ZOOM: { label: 'Zoom', color: '#2d8cff', emoji: '💻' },
+    OTHER: { label: 'Online schůzka', color: '#64748b', emoji: '🔗' },
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -437,19 +489,40 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
           className="flex items-center gap-2 text-xs font-semibold text-ink-muted hover:text-ink transition-colors w-full"
         >
           {showDescription ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-          <span>📍 Místo a popis</span>
+          <MapPin size={13} />
+          <span>Místo a popis</span>
           {(location || description) && (
             <span className="ml-auto text-[10px] text-primary font-bold">vyplněno</span>
           )}
         </button>
         {showDescription && (
           <div className="space-y-2 pl-4">
-            <input
-              className="input text-sm"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Kde? (místo, adresa…)"
-            />
+            <div className="flex gap-2">
+              <input
+                className="input text-sm flex-1"
+                value={location}
+                onChange={(e) => { setLocation(e.target.value); setShowMap(false); }}
+                placeholder="Kde? (místo, adresa…)"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleGeocode(); } }}
+              />
+              <button
+                type="button"
+                onClick={handleGeocode}
+                disabled={!location.trim() || geocoding}
+                className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-50 whitespace-nowrap"
+                title="Zobrazit na mapě"
+              >
+                {geocoding ? '⏳' : '🗺️'} Mapa
+              </button>
+            </div>
+            {showMap && locationLat !== null && locationLng !== null && (
+              <LocationMapPicker
+                lat={locationLat}
+                lng={locationLng}
+                onMove={(lat, lng) => { setLocationLat(lat); setLocationLng(lng); }}
+                label={location}
+              />
+            )}
             <textarea
               className="input text-sm"
               rows={2}
@@ -457,6 +530,50 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Popis, poznámka…"
             />
+          </div>
+        )}
+      </div>
+
+      {/* Online meeting section */}
+      <div className="space-y-1.5">
+        <button
+          type="button"
+          onClick={() => setShowMeeting((v) => !v)}
+          className="flex items-center gap-2 text-xs font-semibold text-ink-muted hover:text-ink transition-colors w-full"
+        >
+          {showMeeting ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+          <Video size={13} />
+          <span>Online schůzka</span>
+          {meetingUrl && (
+            <span className="ml-auto text-[10px] text-primary font-bold">
+              {MEETING_LABELS[meetingProvider ?? 'OTHER']?.emoji} {MEETING_LABELS[meetingProvider ?? 'OTHER']?.label}
+            </span>
+          )}
+        </button>
+        {showMeeting && (
+          <div className="pl-4 space-y-2">
+            <input
+              className="input text-sm"
+              value={meetingUrl}
+              onChange={(e) => {
+                const url = e.target.value;
+                setMeetingUrl(url);
+                setMeetingProvider(detectMeetingProvider(url));
+              }}
+              placeholder="https://meet.google.com/... nebo Teams/Zoom odkaz"
+            />
+            {meetingProvider && (
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold"
+                style={{
+                  background: (MEETING_LABELS[meetingProvider]?.color ?? '#64748b') + '15',
+                  color: MEETING_LABELS[meetingProvider]?.color ?? '#64748b',
+                }}
+              >
+                <span>{MEETING_LABELS[meetingProvider]?.emoji}</span>
+                <span>{MEETING_LABELS[meetingProvider]?.label}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

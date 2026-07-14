@@ -55,4 +55,6 @@ export interface FeatureFlagsMap {
   ics_feed: boolean;
   weekly_digest: boolean;
   birthdays_layer: boolean;
+  fridge_notes: boolean;
+  external_calendar_import: boolean;
 }

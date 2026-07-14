@@ -34,16 +34,23 @@ function serializeEvent(event: any): any {
     description: event.description,
     eventTypeId: event.eventTypeId,
     eventType: event.eventType ?? null,
-    start: event.start.toISOString(),
-    end: event.end.toISOString(),
+    start: event.start instanceof Date ? event.start.toISOString() : event.start,
+    end: event.end instanceof Date ? event.end.toISOString() : event.end,
     allDay: event.allDay,
-    location: event.location,
+    location: event.location ?? null,
+    locationLat: event.locationLat ?? null,
+    locationLng: event.locationLng ?? null,
+    meetingProvider: event.meetingProvider ?? null,
+    meetingUrl: event.meetingUrl ?? null,
     colorOverride: event.colorOverride,
     createdById: event.createdById,
     recurrenceRule: event.recurrenceRule,
     parentEventId: event.parentEventId,
     status: event.status,
     isHoliday: event.isHoliday,
+    isExternalImport: event.isExternalImport ?? false,
+    scheduleImportId: event.scheduleImportId ?? null,
+    externalSourceId: event.externalSourceId ?? null,
     transport: serializeTransport(event),
     participants: (event.participants ?? []).map((p: any) => ({
       userId: p.userId,
@@ -58,10 +65,10 @@ function serializeEvent(event: any): any {
       size: a.size,
       thumbnailUrl: a.thumbnailPath ? thumbnailUrl(a.id) : null,
       downloadUrl: attachmentUrl(a.id),
-      createdAt: a.createdAt.toISOString(),
+      createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
     })),
-    createdAt: event.createdAt.toISOString(),
-    updatedAt: event.updatedAt.toISOString(),
+    createdAt: event.createdAt instanceof Date ? event.createdAt.toISOString() : event.createdAt,
+    updatedAt: event.updatedAt instanceof Date ? event.updatedAt.toISOString() : event.updatedAt,
   };
 }
 
@@ -172,9 +179,12 @@ export const eventService = {
         transportUserId: data.transportUserId ?? null,
         transportExternalName: data.transportExternalName ?? null,
         transportNote: data.transportNote ?? null,
-        // New fields — added via migration 20260713_add_transport_direction
         ...(data.transportDirection !== undefined && { transportDirection: data.transportDirection ?? null } as any),
         ...(data.transportCoversSupervision !== undefined && { transportCoversSupervision: data.transportCoversSupervision ?? null } as any),
+        ...((data as any).locationLat !== undefined && { locationLat: (data as any).locationLat ?? null }),
+        ...((data as any).locationLng !== undefined && { locationLng: (data as any).locationLng ?? null }),
+        ...((data as any).meetingProvider !== undefined && { meetingProvider: (data as any).meetingProvider ?? null }),
+        ...((data as any).meetingUrl !== undefined && { meetingUrl: (data as any).meetingUrl ?? null }),
         participants: data.participantIds?.length
           ? { create: data.participantIds.map((uid) => ({ userId: uid })) }
           : undefined,
@@ -304,6 +314,10 @@ export const eventService = {
         ...(data.transportNote !== undefined && { transportNote: data.transportNote ?? null }),
         ...(data.transportDirection !== undefined && { transportDirection: data.transportDirection ?? null } as any),
         ...(data.transportCoversSupervision !== undefined && { transportCoversSupervision: data.transportCoversSupervision ?? null } as any),
+        ...((data as any).locationLat !== undefined && { locationLat: (data as any).locationLat ?? null }),
+        ...((data as any).locationLng !== undefined && { locationLng: (data as any).locationLng ?? null }),
+        ...((data as any).meetingProvider !== undefined && { meetingProvider: (data as any).meetingProvider ?? null }),
+        ...((data as any).meetingUrl !== undefined && { meetingUrl: (data as any).meetingUrl ?? null }),
         ...(data.participantIds !== undefined && {
           participants: {
             deleteMany: {},

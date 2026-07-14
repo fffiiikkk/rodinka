@@ -27,6 +27,11 @@ import motdRouter from './routes/motd.js';
 import attachmentsRouter from './routes/attachments.js';
 import notificationsRouter from './routes/notifications.js';
 import icsRouter from './routes/ics.js';
+import scheduleImportRouter from './routes/scheduleImport.js';
+import geocodeRouter from './routes/geocode.js';
+import externalCalendarsRouter from './routes/externalCalendars.js';
+import fridgeNotesRouter from './routes/fridgeNotes.js';
+import giphyRouter from './routes/giphy.js';
 
 const PgSession = connectPgSimple(session);
 
@@ -42,8 +47,8 @@ export function createApp() {
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        imgSrc: ["'self'", 'data:', 'blob:'],
-        connectSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://media.giphy.com', 'https://media0.giphy.com', 'https://media1.giphy.com', 'https://media2.giphy.com', 'https://media3.giphy.com', 'https://media4.giphy.com'],
+        connectSrc: ["'self'", 'https://nominatim.openstreetmap.org'],
       },
     },
   }));
@@ -109,6 +114,11 @@ export function createApp() {
   app.use('/api/attachments', attachmentsRouter);
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/ics', icsRouter);
+  app.use('/api/schedule-import', scheduleImportRouter);
+  app.use('/api/geocode', geocodeRouter);
+  app.use('/api/external-calendars', externalCalendarsRouter);
+  app.use('/api/fridge-notes', fridgeNotesRouter);
+  app.use('/api/giphy', giphyRouter);
 
   // Serve frontend build when public dir exists (production & E2E; not local dev)
   // __dirname = packages/backend/dist at runtime; Vite outputs to packages/backend/dist/public

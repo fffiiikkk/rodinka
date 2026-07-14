@@ -1,12 +1,13 @@
 import React from 'react';
 import { Routes, Route, NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Users, Tag, ToggleLeft, MessageSquare, Flower2 } from 'lucide-react';
+import { Users, Tag, ToggleLeft, MessageSquare, Flower2, School } from 'lucide-react';
 import UsersAdmin from '../components/admin/UsersAdmin.js';
 import EventTypesAdmin from '../components/admin/EventTypesAdmin.js';
 import FlagsAdmin from '../components/admin/FlagsAdmin.js';
 import MotdAdmin from '../components/admin/MotdAdmin.js';
 import NamedaysAdmin from '../components/admin/NamedaysAdmin.js';
+import ScheduleImportAdmin from '../components/admin/ScheduleImportAdmin.js';
 
 export default function AdminPage() {
   const { t } = useTranslation();
@@ -17,6 +18,7 @@ export default function AdminPage() {
     { to: '/admin/flags', icon: ToggleLeft, label: t('admin.flags') },
     { to: '/admin/motd', icon: MessageSquare, label: t('admin.motd') },
     { to: '/admin/namedays', icon: Flower2, label: 'Jmeniny' },
+    { to: '/admin/schedule-import', icon: School, label: 'Rozvrh' },
   ];
 
   return (
@@ -46,6 +48,7 @@ export default function AdminPage() {
           <Route path="flags" element={<FlagsAdmin />} />
           <Route path="motd" element={<MotdAdmin />} />
           <Route path="namedays" element={<NamedaysAdmin />} />
+          <Route path="schedule-import" element={<ScheduleImportAdmin />} />
         </Routes>
       </div>
     </div>

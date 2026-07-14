@@ -13,6 +13,8 @@ export const FEATURE_FLAG_KEYS = [
   'ics_feed',
   'weekly_digest',
   'birthdays_layer',
+  'fridge_notes',
+  'external_calendar_import',
 ] as const;
 
 export type FeatureFlagKey = (typeof FEATURE_FLAG_KEYS)[number];
@@ -30,4 +32,6 @@ export const DEFAULT_FLAGS: FeatureFlagsMap = {
   ics_feed: true,
   weekly_digest: true,
   birthdays_layer: true,
+  fridge_notes: true,
+  external_calendar_import: true,
 };

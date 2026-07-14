@@ -16,6 +16,8 @@ import { api } from '../lib/api.js';
 import { useEvents } from '../hooks/useEvents.js';
 import Sheet from '../components/ui/Sheet.js';
 import Avatar from '../components/ui/Avatar.js';
+import ScheduleSummaryChip from '../components/calendar/ScheduleSummaryChip.js';
+import { groupByScheduleImport } from '../lib/scheduleGroups.js';
 import type { Event, UserPublic } from '@rodinkal/shared';
 
 /** Render icon only if it looks like an emoji/symbol — not a plain-text label. */
@@ -198,9 +200,11 @@ function DayCell({
       <div className="min-h-[60px] flex items-center justify-center text-ink-faint text-xs">—</div>
     );
   }
+  const { groups, ungrouped } = groupByScheduleImport(events);
+
   return (
     <div className={`min-h-[60px] p-1.5 space-y-1 ${hasConflict ? 'bg-red-50 dark:bg-red-950/20' : ''}`}>
-      {events.map((e) => {
+      {ungrouped.map((e) => {
         const color = e.eventType?.color ?? accentColor;
         return (
           <Link
@@ -216,7 +220,6 @@ function DayCell({
             {e.location && (
               <p className="text-[10px] text-ink-faint truncate">📍 {e.location}</p>
             )}
-            {/* Transport + participants row */}
             <div className="flex items-center gap-1 mt-0.5 flex-wrap">
               {e.transport?.userName && (
                 <span className="text-[9px] text-ink-faint flex items-center gap-0.5">
@@ -243,6 +246,9 @@ function DayCell({
           </Link>
         );
       })}
+      {groups.map((g) => (
+        <ScheduleSummaryChip key={g.scheduleImportId + g.date} group={g as any} color={accentColor} />
+      ))}
       {hasConflict && <CollisionTooltip reasons={conflictReasons} />}
     </div>
   );

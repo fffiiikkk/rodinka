@@ -14,6 +14,8 @@ import UnavailabilitySheet from '../components/calendar/UnavailabilitySheet.js';
 import { AvailabilityStrip, AvailabilityBars, AvailabilityDots } from '../components/calendar/AvailabilityStrip.js';
 import { BirthdayStrip, BirthdayDots } from '../components/calendar/BirthdayStrip.js';
 import { useCalendarLayer, type CalendarLayerEvent } from '../hooks/useCalendarLayer.js';
+import ScheduleSummaryChip from '../components/calendar/ScheduleSummaryChip.js';
+import { groupByScheduleImport } from '../lib/scheduleGroups.js';
 import type { Event, Availability } from '@rodinkal/shared';
 
 // ─── Shared layout constants ──────────────────────────────────────────────────
@@ -604,15 +606,30 @@ function AgendaView({
             )}
             {startingEvents.length > 0 && (
               <div className="ml-9 space-y-1 pb-2">
-                {startingEvents.map((e) => (
-                  <EventChip key={e.id} event={e} />
-                ))}
+                <AgendaDayEvents events={startingEvents} />
               </div>
             )}
           </div>
         );
       })}
     </div>
+  );
+}
+
+/** Render a day's events, collapsing schedule groups into ScheduleSummaryChip */
+function AgendaDayEvents({ events }: { events: Event[] }) {
+  const { groups, ungrouped } = groupByScheduleImport(events);
+  return (
+    <>
+      {ungrouped.map((e) => <EventChip key={e.id} event={e} />)}
+      {groups.map((g) => (
+        <ScheduleSummaryChip
+          key={g.scheduleImportId + g.date}
+          group={g as any}
+          color="#3b82f6"
+        />
+      ))}
+    </>
   );
 }
 

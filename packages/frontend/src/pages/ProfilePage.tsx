@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
-import { Camera, Moon, Sun, Monitor, LogOut, Loader2, Bell, BellOff, BellRing } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Camera, Moon, Sun, Monitor, LogOut, Loader2, Bell, BellOff, BellRing, Calendar, RefreshCw, Trash2, Plus, X, ExternalLink } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useMyBadges } from '../hooks/useBadges.js';
 import { usePushNotifications } from '../hooks/usePushNotifications.js';
+import { useFeatureFlag } from '../hooks/useFeatureFlag.js';
 import { api } from '../lib/api.js';
 import { useTheme } from '../theme/ThemeProvider.js';
 import { THEMES } from '@rodinkal/shared';
@@ -358,6 +359,9 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* External Calendars */}
+      <ExternalCalendarsSection />
+
       {/* Logout */}
       <button
         onClick={() => logout()}
@@ -365,6 +369,225 @@ export default function ProfilePage() {
       >
         <LogOut size={18} /> {t('auth.logout')}
       </button>
+    </div>
+  );
+}
+
+// ─── External Calendars Section ──────────────────────────────────────────────
+
+interface ExtCalSub {
+  id: string;
+  name: string;
+  icsUrl: string | null;
+  isActive: boolean;
+  lastSyncAt: string | null;
+  lastSyncStatus: string | null;
+  lastSyncError: string | null;
+  createdAt: string;
+  _count: { events: number };
+}
+
+function ExternalCalendarsSection() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const externalCalendarEnabled = useFeatureFlag('external_calendar_import');
+  const [showAdd, setShowAdd] = useState(false);
+  const [addMode, setAddMode] = useState<'url' | 'file'>('url');
+  const [name, setName] = useState('');
+  const [icsUrl, setIcsUrl] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const { data, isLoading } = useQuery<{ subscriptions: ExtCalSub[] }>({
+    queryKey: ['external-calendars'],
+    queryFn: () => api.get('/external-calendars'),
+    enabled: externalCalendarEnabled,
+    staleTime: 60_000,
+  });
+
+  const add = useMutation({
+    mutationFn: (body: { name: string; icsUrl?: string; icsText?: string }) =>
+      api.post('/external-calendars', body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['external-calendars'] });
+      qc.invalidateQueries({ queryKey: ['events'] });
+      toast('✅ Kalendář přidán', 'success');
+      setShowAdd(false);
+      setName('');
+      setIcsUrl('');
+    },
+    onError: () => toast('❌ Přidání selhalo', 'error'),
+  });
+
+  const sync = useMutation({
+    mutationFn: (id: string) => api.post(`/external-calendars/${id}/sync`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['external-calendars'] });
+      qc.invalidateQueries({ queryKey: ['events'] });
+      toast('🔄 Synchronizováno', 'success');
+    },
+    onError: () => toast('❌ Synchronizace selhala', 'error'),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/external-calendars/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['external-calendars'] });
+      qc.invalidateQueries({ queryKey: ['events'] });
+      toast('🗑️ Kalendář odebrán', 'info');
+    },
+  });
+
+  function handleFileImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !name.trim()) { toast('Zadejte nejprve název', 'warning'); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      add.mutate({ name, icsText: text });
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  if (!externalCalendarEnabled) return null;
+
+  const subs = data?.subscriptions ?? [];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold text-ink flex items-center gap-2">
+          <Calendar size={16} className="text-primary" />
+          Externí kalendáře
+        </h3>
+        <button
+          type="button"
+          onClick={() => setShowAdd((v) => !v)}
+          className="text-xs text-primary font-semibold flex items-center gap-1 hover:underline"
+        >
+          <Plus size={12} /> Přidat
+        </button>
+      </div>
+
+      {/* Add form */}
+      {showAdd && (
+        <div className="card p-3 space-y-3">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setAddMode('url')}
+              className={`flex-1 text-xs py-1.5 rounded-lg border font-semibold transition-colors ${
+                addMode === 'url' ? 'bg-primary text-white border-primary' : 'border-border text-ink-muted'
+              }`}
+            >
+              🔗 URL (Google/Outlook)
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddMode('file')}
+              className={`flex-1 text-xs py-1.5 rounded-lg border font-semibold transition-colors ${
+                addMode === 'file' ? 'bg-primary text-white border-primary' : 'border-border text-ink-muted'
+              }`}
+            >
+              📁 Nahrát soubor
+            </button>
+          </div>
+
+          <input
+            className="input text-sm"
+            placeholder="Název (např. Práce — Google)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+
+          {addMode === 'url' ? (
+            <div className="space-y-2">
+              <input
+                className="input text-sm"
+                placeholder="https://calendar.google.com/calendar/ical/…"
+                value={icsUrl}
+                onChange={(e) => setIcsUrl(e.target.value)}
+              />
+              <p className="text-[10px] text-ink-muted">
+                V Google Kalendáři: Nastavení → Klíčová slova → Tajná adresa ve formátu iCal
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!name.trim() || !icsUrl.trim()) { toast('Vyplňte název a URL', 'warning'); return; }
+                  add.mutate({ name, icsUrl });
+                }}
+                disabled={add.isPending}
+                className="btn-primary text-sm w-full disabled:opacity-50"
+              >
+                {add.isPending ? 'Přidávám…' : 'Přidat a synchronizovat'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="btn-secondary text-sm w-full"
+              >
+                📎 Vybrat .ics soubor
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".ics,text/calendar"
+                className="hidden"
+                onChange={handleFileImport}
+              />
+            </div>
+          )}
+
+          <button type="button" onClick={() => setShowAdd(false)} className="text-xs text-ink-muted hover:text-ink w-full text-center">
+            Zrušit
+          </button>
+        </div>
+      )}
+
+      {/* List */}
+      {isLoading && <p className="text-xs text-ink-muted">Načítám…</p>}
+      {subs.length === 0 && !isLoading && !showAdd && (
+        <p className="text-xs text-ink-muted">Žádné externí kalendáře. Přidejte Google, Outlook nebo .ics soubor.</p>
+      )}
+      {subs.map((sub) => (
+        <div key={sub.id} className="card p-3 flex items-center gap-3">
+          <Calendar size={14} className="text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-ink truncate">{sub.name}</p>
+            <p className="text-[10px] text-ink-muted">
+              {sub._count.events} událostí
+              {sub.lastSyncAt && ` · sync ${new Date(sub.lastSyncAt).toLocaleDateString('cs-CZ')}`}
+              {sub.lastSyncStatus === 'ERROR' && (
+                <span className="ml-1 text-danger">⚠️ {sub.lastSyncError}</span>
+              )}
+            </p>
+          </div>
+          {sub.icsUrl && (
+            <button
+              type="button"
+              onClick={() => sync.mutate(sub.id)}
+              disabled={sync.isPending}
+              className="p-1.5 rounded-lg text-primary hover:bg-primary/10 disabled:opacity-50"
+              title="Synchronizovat"
+            >
+              <RefreshCw size={14} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm(`Odebrat "${sub.name}" a všechny jeho události?`)) remove.mutate(sub.id);
+            }}
+            className="p-1.5 rounded-lg text-danger hover:bg-danger/10"
+            title="Odebrat"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

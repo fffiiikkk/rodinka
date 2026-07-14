@@ -5,9 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth.js';
 import { useEvents } from '../hooks/useEvents.js';
 import { useBadgeProgress } from '../hooks/useBadges.js';
+import { useFeatureFlag } from '../hooks/useFeatureFlag.js';
 import { api } from '../lib/api.js';
 import { addDays, formatRelativeDate, formatDate } from '../lib/dates.js';
 import Avatar from '../components/ui/Avatar.js';
+import FridgeBoard from '../components/dashboard/FridgeBoard.js';
 import { AlertTriangle, CheckCircle2, Clock, CalendarRange, ChevronRight } from 'lucide-react';
 
 function MotdBanner() {
@@ -318,6 +320,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const fridgeNotesEnabled = useFeatureFlag('fridge_notes');
 
   const dashboard = user?.role === 'KID'
     ? <KidDashboard />
@@ -329,6 +332,11 @@ export default function DashboardPage() {
     <div>
       <MotdBanner />
       {dashboard}
+      {fridgeNotesEnabled && (
+        <div className="px-4 pb-6 mt-4">
+          <FridgeBoard />
+        </div>
+      )}
     </div>
   );
 }

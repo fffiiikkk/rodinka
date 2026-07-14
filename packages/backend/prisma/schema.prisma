@@ -133,6 +133,9 @@ model User {
   uploadedAttachments   EventAttachment[]
   notificationLogs      NotificationLog[]
   eventTemplates        EventTemplate[]
+  scheduleImports       ScheduleImport[]
+  externalCalendars     ExternalCalendarSubscription[]
+  fridgeNotesAuthored   FridgeNote[]
 }
 
 model PasswordResetToken {
@@ -201,6 +204,24 @@ model Event {
   transportDirection           String?
   // null = default (assumed covers supervision when transporter set), false = does NOT cover supervision
   transportCoversSupervision   Boolean?
+
+  // Structured location coordinates (from geocoding)
+  locationLat    Float?
+  locationLng    Float?
+
+  // Online meeting info
+  meetingProvider String?  // GOOGLE_MEET | TEAMS | ZOOM | OTHER
+  meetingUrl      String?
+
+  // Schedule import grouping
+  scheduleImportId String?
+  scheduleImport   ScheduleImport? @relation(fields: [scheduleImportId], references: [id])
+
+  // External calendar import
+  externalSourceId String?
+  externalSource   ExternalCalendarSubscription? @relation(fields: [externalSourceId], references: [id])
+  externalUid      String?   // ICS UID for deduplication on re-sync
+  isExternalImport Boolean   @default(false)
 
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -290,6 +311,68 @@ model MessageOfTheDay {
   isActive  Boolean      @default(true)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Schedule Import (bulk recurring school blocks)
+// ─────────────────────────────────────────────
+
+model ScheduleImport {
+  id           String    @id @default(cuid())
+  name         String
+  targetUserId String
+  targetUser   User      @relation(fields: [targetUserId], references: [id])
+  createdById  String
+  validFrom    DateTime
+  validTo      DateTime?
+  createdAt    DateTime  @default(now())
+  events       Event[]
+}
+
+// ─────────────────────────────────────────────
+// External Calendar Subscriptions (ICS import)
+// ─────────────────────────────────────────────
+
+model ExternalCalendarSubscription {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  name           String
+  icsUrl         String?
+  isActive       Boolean   @default(true)
+  lastSyncAt     DateTime?
+  lastSyncStatus String?
+  lastSyncError  String?
+  createdAt      DateTime  @default(now())
+  events         Event[]
+}
+
+// ─────────────────────────────────────────────
+// Fridge Notes (family message board)
+// ─────────────────────────────────────────────
+
+model FridgeNote {
+  id          String    @id @default(cuid())
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+  contentHtml String    @db.Text
+  color       String?
+  isPinned    Boolean   @default(false)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  attachments FridgeNoteAttachment[]
+}
+
+model FridgeNoteAttachment {
+  id         String     @id @default(cuid())
+  noteId     String
+  note       FridgeNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  fileName   String
+  mimeType   String
+  size       Int
+  storageKey String
+  createdAt  DateTime   @default(now())
 }
 
 // ─────────────────────────────────────────────

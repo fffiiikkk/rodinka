@@ -148,6 +148,7 @@ jobs:
           VAPID_PUBLIC_KEY=$(grep '^VAPID_PUBLIC_KEY=' .env.prod | cut -d'=' -f2- || echo "")
           VAPID_PRIVATE_KEY=$(grep '^VAPID_PRIVATE_KEY=' .env.prod | cut -d'=' -f2- || echo "")
           VAPID_SUBJECT=$(grep '^VAPID_SUBJECT=' .env.prod | cut -d'=' -f2- || echo "")
+          GIPHY_API_KEY=$(grep '^GIPHY_API_KEY=' .env.prod | cut -d'=' -f2- || echo "")
 
           # Ensure the docker volume for uploads exists
           $DOCKER volume create rodinka_uploads 2>/dev/null || true
@@ -187,6 +188,7 @@ jobs:
             -e "VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}" \
             -e "VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}" \
             -e "VAPID_SUBJECT=${VAPID_SUBJECT}" \
+            -e "GIPHY_API_KEY=${GIPHY_API_KEY}" \
             -e "UPLOAD_DIR=/app/uploads" \
             -v rodinka_uploads:/app/uploads \
             ghcr.io/fffiiikkk/rodinkal:latest
