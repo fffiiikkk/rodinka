@@ -217,18 +217,26 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
     if (!location.trim()) return;
     setGeocoding(true);
     try {
-      const result = await api.post<{ lat: number; lng: number; displayName: string } | null>(
-        '/geocode', { address: location }
-      );
-      if (result) {
-        setLocationLat(result.lat);
-        setLocationLng(result.lng);
-        setShowMap(true);
-      } else {
-        toast('📍 Místo nenalezeno', 'warning');
+      // Geocode directly from the browser — avoids server networking issues
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1&addressdetails=1&accept-language=cs,en`;
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Rodinka/1.0 (family-calendar; krataf.dev)',
+          'Accept-Language': 'cs,en',
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as Array<{ lat: string; lon: string; display_name: string }>;
+      if (!data.length) {
+        toast('📍 Místo nenalezeno — zkuste upřesnit adresu', 'warning');
+        return;
       }
+      const first = data[0]!;
+      setLocationLat(parseFloat(first.lat));
+      setLocationLng(parseFloat(first.lon));
+      setShowMap(true);
     } catch {
-      toast('📍 Geokódování selhalo', 'error');
+      toast('📍 Chyba při hledání místa', 'error');
     } finally {
       setGeocoding(false);
     }
