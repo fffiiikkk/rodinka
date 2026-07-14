@@ -17,6 +17,7 @@ function serializeUser(user: {
   dateOfBirth: Date | null; role: string; photoPath: string | null;
   preferredLanguage: string; theme: string; colorMode: string;
   isActive: boolean; createdAt: Date; relationship?: string | null; nickname?: string | null;
+  nameDayOverride?: string | null;
 }) {
   return {
     id: user.id,
@@ -34,6 +35,7 @@ function serializeUser(user: {
     createdAt: user.createdAt.toISOString(),
     relationship: user.relationship ?? null,
     nickname: user.nickname ?? null,
+    nameDayOverride: user.nameDayOverride ?? null,
   };
 }
 
@@ -41,7 +43,7 @@ const SELECT = {
   id: true, username: true, name: true, email: true, mobile: true,
   dateOfBirth: true, role: true, photoPath: true, preferredLanguage: true,
   theme: true, colorMode: true, isActive: true, createdAt: true,
-  relationship: true, nickname: true,
+  relationship: true, nickname: true, nameDayOverride: true,
 };
 
 export const userService = {

@@ -6,6 +6,7 @@ import { userService } from '../services/userService.js';
 import { createError } from '../middleware/errorHandler.js';
 import { saveFile, generateKey, fileUrl } from '../lib/s3.js';
 import { config } from '../config.js';
+import { CZECH_NAME_DAYS } from '../lib/nameDays.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -181,5 +182,55 @@ router.post('/:id/admin-reset-password', requireAdmin, async (req, res, next) =>
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
+
+// Return the full Czech nameday calendar so the frontend can do instant name lookups
+router.get('/nameday-calendar', requireAdmin, (_req, res) => {
+  res.json({ calendar: CZECH_NAME_DAYS });
+});
+
+// Admin: list all users with their nameday status (auto-detected + override)
+router.get('/namedays', requireAdmin, async (req, res, next) => {
+  try {
+    const { prisma } = await import('../db.js');
+    const users = await prisma.user.findMany({
+      where: { isActive: true, username: { not: 'system' } },
+      select: { id: true, name: true, nameDayOverride: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const result = users.map((u) => {
+      const firstName = u.name.trim().split(/\s+/)[0] ?? u.name.trim();
+      // Auto-detect from static calendar
+      const autoMMDD = findFirstNameDayLocal(firstName);
+      const effectiveMMDD = u.nameDayOverride ?? autoMMDD;
+      const nameDayLabel = effectiveMMDD ? (CZECH_NAME_DAYS[effectiveMMDD] ?? null) : null;
+      return {
+        id: u.id,
+        name: u.name,
+        firstName,
+        autoMMDD,       // null if not found in calendar
+        overrideMMDD: u.nameDayOverride,
+        effectiveMMDD,  // what is actually used
+        nameDayLabel,
+        matched: autoMMDD !== null,
+        overridden: u.nameDayOverride !== null,
+      };
+    });
+
+    res.json({ namedays: result });
+  } catch (e) { next(e); }
+});
+
+function findFirstNameDayLocal(name: string): string | null {
+  const search = name.toLowerCase().normalize('NFC');
+  for (const [key, entry] of Object.entries(CZECH_NAME_DAYS)) {
+    const parts = entry.split(/\s+a\s+|\s*[,(]/);
+    for (const part of parts) {
+      const clean = part.trim().replace(/[.)]/g, '').toLowerCase().normalize('NFC');
+      if (clean === search) return key;
+    }
+  }
+  return null;
+}
 
 export default router;

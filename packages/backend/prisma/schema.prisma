@@ -104,6 +104,9 @@ model User {
   relationship      String?
   // Familiar/family nickname (e.g. "Jenda" for Jan, "Kačka" for Kateřina)
   nickname          String?
+  // Admin-set nameday override in MM-DD format (e.g. "05-15").
+  // When set this takes precedence over the automatic first-name lookup.
+  nameDayOverride   String?
 
   // ICS feed secret token
   icsToken          String    @unique @default(cuid())

@@ -60,6 +60,8 @@ export const AdminUpdateUserSchema = UpdateUserSchema.extend({
   isActive: z.boolean().optional(),
   relationship: z.string().max(100).nullable().optional(),
   nickname: z.string().max(60).nullable().optional(),
+  /** MM-DD override for nameday, e.g. "05-15". Null clears the override. */
+  nameDayOverride: z.string().regex(/^\d{2}-\d{2}$/).nullable().optional(),
 });
 
 export type UserPublic = z.infer<typeof UserPublicSchema>;

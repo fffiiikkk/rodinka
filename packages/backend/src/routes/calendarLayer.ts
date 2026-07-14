@@ -82,7 +82,7 @@ router.get('/', async (req, res, next) => {
 
     const users = await prisma.user.findMany({
       where: { isActive: true, username: { not: 'system' } },
-      select: { id: true, name: true, dateOfBirth: true, photoPath: true },
+      select: { id: true, name: true, dateOfBirth: true, photoPath: true, nameDayOverride: true },
     });
 
     const events: CalendarLayerEvent[] = [];
@@ -121,8 +121,8 @@ router.get('/', async (req, res, next) => {
       }
 
       // ── Namedays ──────────────────────────────────────
-      // Find which MM-DD the user's first name is celebrated on
-      const nameDayMMDD = findFirstNameDay(fName);
+      // Use admin-set override first, fall back to automatic first-name lookup
+      const nameDayMMDD = user.nameDayOverride ?? findFirstNameDay(fName);
       if (nameDayMMDD && rangeMMDDs.has(nameDayMMDD)) {
         for (const dateStr of datesForMMDD(nameDayMMDD, fromYear, toYear)) {
           const d = new Date(dateStr);
