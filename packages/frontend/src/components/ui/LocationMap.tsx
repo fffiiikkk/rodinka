@@ -116,8 +116,7 @@ export function LocationMapPicker({ lat, lng, onMove, label }: PickerProps) {
     return () => {
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; markerRef.current = null; }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // intentional: only run once on mount
 
   // Update marker position if parent changes lat/lng (e.g. after geocoding)
   useEffect(() => {
