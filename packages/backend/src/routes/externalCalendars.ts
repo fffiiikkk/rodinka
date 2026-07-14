@@ -43,7 +43,8 @@ router.post('/', requireAuth, async (req, res, next) => {
 /** POST /api/external-calendars/:id/sync */
 router.post('/:id/sync', requireAuth, async (req, res, next) => {
   try {
-    const result = await externalCalendarService.sync(req.params.id!);
+    const id = String(req.params['id']);
+    const result = await externalCalendarService.sync(id);
     res.json(result);
   } catch (e) { next(e); }
 });
@@ -51,7 +52,8 @@ router.post('/:id/sync', requireAuth, async (req, res, next) => {
 /** DELETE /api/external-calendars/:id */
 router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
-    await externalCalendarService.remove(req.params.id!);
+    const id = String(req.params['id']);
+    await externalCalendarService.remove(id);
     res.json({ ok: true });
   } catch (e) { next(e); }
 });

@@ -62,7 +62,8 @@ router.put('/:id', requireAdmin, async (req, res, next) => {
       res.status(400).json({ error: 'name, targetUserId, validFrom, rows required' });
       return;
     }
-    const result = await scheduleImportService.replace(req.params.id!, {
+    const id = String(req.params['id']);
+    const result = await scheduleImportService.replace(id, {
       name, targetUserId, validFrom, validTo, rows, adminId: req.session.userId!,
     });
     res.json(result);
@@ -72,7 +73,7 @@ router.put('/:id', requireAdmin, async (req, res, next) => {
 /** Delete an import and its events */
 router.delete('/:id', requireAdmin, async (req, res, next) => {
   try {
-    await scheduleImportService.remove(req.params.id!);
+    await scheduleImportService.remove(String(req.params['id']));
     res.json({ ok: true });
   } catch (e) { next(e); }
 });

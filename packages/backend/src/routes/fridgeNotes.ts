@@ -80,7 +80,8 @@ router.post('/', async (req, res, next) => {
 /** PATCH /:id — author or admin */
 router.patch('/:id', async (req, res, next) => {
   try {
-    const note = await prisma.fridgeNote.findUnique({ where: { id: req.params.id } });
+    const id = String(req.params['id']);
+    const note = await prisma.fridgeNote.findUnique({ where: { id } });
     if (!note) throw createError(404, 'Vzkaz nenalezen', 'NOT_FOUND');
     const isOwner = note.authorId === req.session.userId;
     const isAdmin = req.session.role === 'PARENT';
@@ -94,7 +95,7 @@ router.patch('/:id', async (req, res, next) => {
     };
 
     const updated = await prisma.fridgeNote.update({
-      where: { id: req.params.id },
+      where: { id },
       data: {
         ...(contentHtml !== undefined && { contentHtml }),
         ...(color !== undefined && { color }),
@@ -113,13 +114,14 @@ router.patch('/:id', async (req, res, next) => {
 /** DELETE /:id — author or admin */
 router.delete('/:id', async (req, res, next) => {
   try {
-    const note = await prisma.fridgeNote.findUnique({ where: { id: req.params.id } });
+    const id = String(req.params['id']);
+    const note = await prisma.fridgeNote.findUnique({ where: { id } });
     if (!note) throw createError(404, 'Vzkaz nenalezen', 'NOT_FOUND');
     const isOwner = note.authorId === req.session.userId;
     const isAdmin = req.session.role === 'PARENT';
     if (!isOwner && !isAdmin) throw createError(403, 'Nedostatečná oprávnění', 'FORBIDDEN');
 
-    await prisma.fridgeNote.delete({ where: { id: req.params.id } });
+    await prisma.fridgeNote.delete({ where: { id } });
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
@@ -127,7 +129,8 @@ router.delete('/:id', async (req, res, next) => {
 /** POST /:id/attachments — upload attachment to a note */
 router.post('/:id/attachments', upload.single('file'), async (req, res, next) => {
   try {
-    const note = await prisma.fridgeNote.findUnique({ where: { id: req.params.id } });
+    const id = String(req.params['id']);
+    const note = await prisma.fridgeNote.findUnique({ where: { id } });
     if (!note) throw createError(404, 'Vzkaz nenalezen', 'NOT_FOUND');
     const isOwner = note.authorId === req.session.userId;
     const isAdmin = req.session.role === 'PARENT';
@@ -151,7 +154,7 @@ router.post('/:id/attachments', upload.single('file'), async (req, res, next) =>
 
     const attachment = await prisma.fridgeNoteAttachment.create({
       data: {
-        noteId: req.params.id!,
+        noteId: id,
         fileName: req.file.originalname,
         mimeType: req.file.mimetype,
         size: req.file.size,
