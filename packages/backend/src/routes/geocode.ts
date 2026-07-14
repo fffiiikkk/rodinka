@@ -21,10 +21,12 @@ router.post('/', requireAuth, async (req, res, next) => {
       return;
     }
 
-    if (outcome.reason === 'not_found') {
-      res.status(404).json({ error: 'not_found', message: outcome.message });
+    // outcome is the failure branch — TypeScript needs explicit narrowing via 'ok'
+    const failure = outcome as Extract<typeof outcome, { ok: false }>;
+    if (failure.reason === 'not_found') {
+      res.status(404).json({ error: 'not_found', message: failure.message });
     } else {
-      res.status(502).json({ error: 'geocode_error', message: outcome.message });
+      res.status(502).json({ error: 'geocode_error', message: failure.message });
     }
   } catch (e) { next(e); }
 });
