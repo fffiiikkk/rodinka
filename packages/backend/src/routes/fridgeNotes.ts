@@ -42,6 +42,16 @@ router.get('/', async (_req, res, next) => {
       include: {
         author: { select: { id: true, name: true, nickname: true, photoPath: true, role: true } },
         attachments: true,
+        reactions: {
+          select: { id: true, emoji: true, userId: true },
+          orderBy: { createdAt: 'asc' },
+        },
+        replies: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            author: { select: { id: true, name: true, nickname: true, photoPath: true, role: true } },
+          },
+        },
       },
     });
     res.json({ notes });
@@ -71,6 +81,11 @@ router.post('/', async (req, res, next) => {
       include: {
         author: { select: { id: true, name: true, nickname: true, photoPath: true, role: true } },
         attachments: true,
+        reactions: { select: { id: true, emoji: true, userId: true } },
+        replies: {
+          orderBy: { createdAt: 'asc' },
+          include: { author: { select: { id: true, name: true, nickname: true, photoPath: true, role: true } } },
+        },
       },
     });
     res.json({ note });
@@ -105,6 +120,11 @@ router.patch('/:id', async (req, res, next) => {
       include: {
         author: { select: { id: true, name: true, nickname: true, photoPath: true, role: true } },
         attachments: true,
+        reactions: { select: { id: true, emoji: true, userId: true } },
+        replies: {
+          orderBy: { createdAt: 'asc' },
+          include: { author: { select: { id: true, name: true, nickname: true, photoPath: true, role: true } } },
+        },
       },
     });
     res.json({ note: updated });
@@ -162,6 +182,59 @@ router.post('/:id/attachments', upload.single('file'), async (req, res, next) =>
       },
     });
     res.json({ attachment });
+  } catch (e) { next(e); }
+});
+
+/** POST /:id/reactions { emoji } — toggle (add if absent, remove if mine exists) */
+router.post('/:id/reactions', async (req, res, next) => {
+  try {
+    const noteId = String(req.params['id']);
+    const userId = req.session.userId!;
+    const { emoji } = req.body as { emoji?: string };
+    if (!emoji?.trim()) { res.status(400).json({ error: 'emoji required' }); return; }
+
+    const existing = await prisma.fridgeNoteReaction.findUnique({
+      where: { noteId_userId_emoji: { noteId, userId, emoji } },
+    });
+    if (existing) {
+      await prisma.fridgeNoteReaction.delete({ where: { id: existing.id } });
+      res.json({ action: 'removed' });
+    } else {
+      await prisma.fridgeNoteReaction.create({ data: { noteId, userId, emoji } });
+      res.json({ action: 'added' });
+    }
+  } catch (e) { next(e); }
+});
+
+/** POST /:id/replies { content } — add a text reply */
+router.post('/:id/replies', async (req, res, next) => {
+  try {
+    const noteId = String(req.params['id']);
+    const { content } = req.body as { content?: string };
+    if (!content?.trim()) { res.status(400).json({ error: 'content required' }); return; }
+
+    const reply = await prisma.fridgeNoteReply.create({
+      data: { noteId, authorId: req.session.userId!, content },
+      include: {
+        author: { select: { id: true, name: true, nickname: true, photoPath: true, role: true } },
+      },
+    });
+    res.json({ reply });
+  } catch (e) { next(e); }
+});
+
+/** DELETE /replies/:replyId — author or admin */
+router.delete('/replies/:replyId', async (req, res, next) => {
+  try {
+    const replyId = String(req.params['replyId']);
+    const reply = await prisma.fridgeNoteReply.findUnique({ where: { id: replyId } });
+    if (!reply) throw createError(404, 'Odpověď nenalezena', 'NOT_FOUND');
+    const isOwner = reply.authorId === req.session.userId;
+    const isAdmin = req.session.role === 'PARENT';
+    if (!isOwner && !isAdmin) throw createError(403, 'Nedostatečná oprávnění', 'FORBIDDEN');
+
+    await prisma.fridgeNoteReply.delete({ where: { id: replyId } });
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 

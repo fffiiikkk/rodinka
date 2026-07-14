@@ -13,6 +13,34 @@ import DatePicker from '../components/ui/DatePicker.js';
 import LocationMap from '../components/ui/LocationMap.js';
 import { format } from 'date-fns';
 
+function CoordinatesRow({ lat, lng }: { lat: number; lng: number }) {
+  const { toast } = useToast();
+  const text = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('📍 Souřadnice zkopírovány', 'success');
+    } catch {
+      toast('❌ Kopírování selhalo', 'error');
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 mt-2 px-1">
+      <span className="text-[11px] font-mono text-ink-muted flex-1">{text}</span>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+        title="Kopírovat souřadnice"
+      >
+        <Copy size={11} /> Kopírovat
+      </button>
+    </div>
+  );
+}
+
 const MEETING_LABELS: Record<string, string> = {
   GOOGLE_MEET: 'Google Meet',
   TEAMS: 'Microsoft Teams',
@@ -226,14 +254,20 @@ export default function EventDetailPage() {
           <div className="px-3 py-2.5">
             <div className="flex items-center gap-2.5 mb-2">
               <MapPin size={15} className="text-primary shrink-0" />
-              <p className="text-sm text-ink truncate">{event.location}</p>
+              <p className="text-sm text-ink flex-1 truncate">{event.location}</p>
             </div>
             {(event as any).locationLat != null && (event as any).locationLng != null && (
-              <LocationMap
-                lat={(event as any).locationLat}
-                lng={(event as any).locationLng}
-                label={event.location}
-              />
+              <>
+                <LocationMap
+                  lat={(event as any).locationLat}
+                  lng={(event as any).locationLng}
+                  label={event.location}
+                />
+                <CoordinatesRow
+                  lat={(event as any).locationLat}
+                  lng={(event as any).locationLng}
+                />
+              </>
             )}
           </div>
         )}

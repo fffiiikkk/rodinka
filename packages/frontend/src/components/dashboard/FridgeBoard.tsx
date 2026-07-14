@@ -1,13 +1,15 @@
 /**
  * FridgeBoard — family "fridge notes" board displayed on the Dashboard.
- * Any family member can post a sticky note. Author/admin can edit, delete, or pin.
+ * Any family member can post a sticky note, react with emoji, or reply.
+ * Author/admin can edit, delete, or pin.
  */
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import {
-  Pin, PinOff, Pencil, Trash2, Plus, X, Upload, ChevronDown, ChevronUp,
+  Pin, PinOff, Pencil, Trash2, Plus, X, Upload,
+  ChevronDown, ChevronUp, MessageCircle, Send,
 } from 'lucide-react';
 import { api } from '../../lib/api.js';
 import { useAuth } from '../../hooks/useAuth.js';
@@ -16,12 +18,25 @@ import Sheet from '../ui/Sheet.js';
 import RichTextEditor from '../ui/RichTextEditor.js';
 import Avatar from '../ui/Avatar.js';
 
-interface FridgeNoteAuthor {
+interface NoteAuthor {
   id: string;
   name: string;
   nickname?: string | null;
   photoPath?: string | null;
   role: string;
+}
+
+interface NoteReaction {
+  id: string;
+  emoji: string;
+  userId: string;
+}
+
+interface NoteReply {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: NoteAuthor;
 }
 
 interface FridgeNoteAttachment {
@@ -40,18 +55,22 @@ interface FridgeNote {
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
-  author: FridgeNoteAuthor;
+  author: NoteAuthor;
   attachments: FridgeNoteAttachment[];
+  reactions: NoteReaction[];
+  replies: NoteReply[];
 }
 
 const NOTE_COLORS = [
-  { label: 'Žlutá', value: '#fef9c3', border: '#fbbf24' },
-  { label: 'Zelená', value: '#dcfce7', border: '#4ade80' },
-  { label: 'Modrá', value: '#dbeafe', border: '#60a5fa' },
-  { label: 'Růžová', value: '#fce7f3', border: '#f472b6' },
-  { label: 'Oranžová', value: '#ffedd5', border: '#fb923c' },
-  { label: 'Bílá', value: null, border: null },
+  { label: 'Žlutá',   value: '#fef9c3', border: '#fbbf24' },
+  { label: 'Zelená',  value: '#dcfce7', border: '#4ade80' },
+  { label: 'Modrá',   value: '#dbeafe', border: '#60a5fa' },
+  { label: 'Růžová',  value: '#fce7f3', border: '#f472b6' },
+  { label: 'Oranžová',value: '#ffedd5', border: '#fb923c' },
+  { label: 'Bílá',    value: null,      border: null },
 ];
+
+const QUICK_EMOJI = ['👍', '❤️', '😄', '😮', '😢', '🎉', '🙏', '👀'];
 
 function useNotes() {
   return useQuery<{ notes: FridgeNote[] }>({
@@ -63,6 +82,173 @@ function useNotes() {
 
 function timeAgo(iso: string) {
   return formatDistanceToNow(new Date(iso), { addSuffix: true, locale: cs });
+}
+
+// ─── Reaction bar ──────────────────────────────────────────────────────────
+
+function ReactionBar({ note }: { note: FridgeNote }) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const [showPalette, setShowPalette] = useState(false);
+  const myId = user?.id ?? '';
+
+  const toggle = useMutation({
+    mutationFn: (emoji: string) =>
+      api.post(`/fridge-notes/${note.id}/reactions`, { emoji }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fridge-notes'] });
+      setShowPalette(false);
+    },
+  });
+
+  // Group reactions by emoji → { emoji, count, isMine }
+  const grouped = note.reactions.reduce<Record<string, { count: number; isMine: boolean }>>(
+    (acc, r) => {
+      if (!acc[r.emoji]) acc[r.emoji] = { count: 0, isMine: false };
+      acc[r.emoji]!.count += 1;
+      if (r.userId === myId) acc[r.emoji]!.isMine = true;
+      return acc;
+    },
+    {},
+  );
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 pt-1.5">
+      {Object.entries(grouped).map(([emoji, { count, isMine }]) => (
+        <button
+          key={emoji}
+          type="button"
+          onClick={() => toggle.mutate(emoji)}
+          className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-semibold border transition-colors ${
+            isMine
+              ? 'bg-primary/15 border-primary/40 text-primary'
+              : 'bg-black/5 border-transparent text-gray-600 hover:bg-black/10'
+          }`}
+          title={isMine ? 'Odebrat reakci' : 'Reagovat'}
+        >
+          <span>{emoji}</span>
+          {count > 1 && <span className="ml-0.5">{count}</span>}
+        </button>
+      ))}
+
+      {/* Add reaction button */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowPalette((v) => !v)}
+          className="flex items-center px-1.5 py-0.5 rounded-full text-xs text-gray-400 hover:text-gray-600 hover:bg-black/8 border border-transparent hover:border-black/10 transition-colors"
+          title="Přidat reakci"
+        >
+          + 😊
+        </button>
+        {showPalette && (
+          <div className="absolute bottom-8 left-0 z-20 bg-white shadow-raised rounded-xl p-2 flex gap-1.5 border border-border">
+            {QUICK_EMOJI.map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => toggle.mutate(e)}
+                className="text-lg hover:scale-125 transition-transform"
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Replies thread ────────────────────────────────────────────────────────
+
+function RepliesThread({ note }: { note: FridgeNote }) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const count = note.replies.length;
+
+  const addReply = useMutation({
+    mutationFn: () => api.post(`/fridge-notes/${note.id}/replies`, { content: draft }),
+    onSuccess: () => {
+      setDraft('');
+      qc.invalidateQueries({ queryKey: ['fridge-notes'] });
+    },
+    onError: () => toast('❌ Nepodařilo se odeslat', 'error'),
+  });
+
+  const deleteReply = useMutation({
+    mutationFn: (replyId: string) => api.delete(`/fridge-notes/replies/${replyId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fridge-notes'] }),
+  });
+
+  return (
+    <div className="border-t border-black/8 pt-2 mt-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+      >
+        <MessageCircle size={12} />
+        {count === 0 ? 'Odpovědět' : `${count} odpověď${count > 4 ? 'í' : count > 1 ? 'i' : ''}`}
+        {count > 0 && (open ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2">
+          {note.replies.map((r) => (
+            <div key={r.id} className="flex items-start gap-2 group">
+              <Avatar name={r.author.name} size="xs" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold text-gray-700 leading-tight">
+                  {r.author.nickname ?? r.author.name}
+                  <span className="ml-1.5 font-normal text-gray-400">{timeAgo(r.createdAt)}</span>
+                </p>
+                <p className="text-xs text-gray-700 break-words">{r.content}</p>
+              </div>
+              {(r.author.id === user?.id || user?.role === 'PARENT') && (
+                <button
+                  type="button"
+                  onClick={() => deleteReply.mutate(r.id)}
+                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-100 text-red-400 transition-all"
+                  title="Smazat"
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+          ))}
+
+          {/* Reply input */}
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && draft.trim()) {
+                  e.preventDefault();
+                  addReply.mutate();
+                }
+              }}
+              placeholder="Odpovědět…"
+              className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-surface focus:outline-none focus:ring-1 focus:ring-primary/40"
+            />
+            <button
+              type="button"
+              onClick={() => draft.trim() && addReply.mutate()}
+              disabled={!draft.trim() || addReply.isPending}
+              className="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors"
+            >
+              <Send size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Single note card ──────────────────────────────────────────────────────
@@ -163,7 +349,10 @@ function NoteCard({
         </div>
       )}
 
-      {/* Actions */}
+      {/* Reactions */}
+      {expanded && <ReactionBar note={note} />}
+
+      {/* Admin/owner actions */}
       {canManage && (
         <div className="flex items-center gap-1 pt-1 border-t border-black/5 mt-auto">
           <button
@@ -194,6 +383,9 @@ function NoteCard({
           </button>
         </div>
       )}
+
+      {/* Replies */}
+      {expanded && <RepliesThread note={note} />}
     </div>
   );
 }
@@ -216,7 +408,6 @@ function ComposeSheet({
   const [color, setColor] = useState<string | null>(editNote?.color ?? null);
   const [newNoteId, setNewNoteId] = useState<string | null>(null);
 
-  // Reset when the sheet opens/closes
   React.useEffect(() => {
     if (open) {
       setHtml(editNote?.contentHtml ?? '');
@@ -227,7 +418,7 @@ function ComposeSheet({
 
   const create = useMutation({
     mutationFn: () => api.post<{ note: FridgeNote }>('/fridge-notes', {
-      contentHtml: html, color, // default expiry set server-side
+      contentHtml: html, color,
     }),
     onSuccess: (data) => {
       setNewNoteId(data.note.id);
@@ -308,7 +499,7 @@ function ComposeSheet({
           />
         </div>
 
-        {/* Attachment upload (only after note is saved and has an ID) */}
+        {/* Attachment upload (only after note is saved) */}
         {canAttach && (
           <div>
             <label className="label">Přílohy</label>
@@ -347,7 +538,6 @@ function ComposeSheet({
           </button>
         </div>
 
-        {/* Hint to attach after saving */}
         {!canAttach && (
           <p className="text-xs text-ink-muted">
             💡 Přílohy lze přidat po uložení vzkazku.
@@ -372,9 +562,9 @@ export default function FridgeBoard() {
   }
 
   return (
-    <div>
+    <div className="card p-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 px-1">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-lg">📌</span>
           <h2 className="font-bold text-ink">Vzkazy na ledničce</h2>
@@ -393,7 +583,7 @@ export default function FridgeBoard() {
 
       {/* Notes grid */}
       {notes.length === 0 ? (
-        <div className="text-center py-8 text-ink-muted">
+        <div className="text-center py-6 text-ink-muted">
           <p className="text-3xl mb-2">📝</p>
           <p className="text-sm">Žádné vzkazy. Napište první!</p>
         </div>
@@ -409,7 +599,6 @@ export default function FridgeBoard() {
         </div>
       )}
 
-      {/* Compose / edit sheet */}
       <ComposeSheet
         open={composeOpen}
         onClose={() => { setComposeOpen(false); setEditNote(null); }}

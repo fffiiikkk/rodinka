@@ -501,21 +501,31 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
               <input
                 className="input text-sm flex-1"
                 value={location}
-                onChange={(e) => { setLocation(e.target.value); setShowMap(false); }}
+                onChange={(e) => { setLocation(e.target.value); setShowMap(false); setLocationLat(null); setLocationLng(null); }}
                 placeholder="Kde? (místo, adresa…)"
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleGeocode(); } }}
               />
+              {location.trim() && (
+                <button
+                  type="button"
+                  onClick={handleGeocode}
+                  disabled={geocoding}
+                  className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-50 whitespace-nowrap"
+                  title="Najít na mapě"
+                >
+                  {geocoding ? '⏳' : '🔍'}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleGeocode}
-                disabled={!location.trim() || geocoding}
-                className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-50 whitespace-nowrap"
-                title="Zobrazit na mapě"
+                onClick={() => setShowMap((v) => !v)}
+                className={`btn-secondary text-xs px-3 py-1.5 whitespace-nowrap ${showMap ? 'ring-2 ring-primary/50' : ''}`}
+                title={showMap ? 'Skrýt mapu' : 'Zobrazit mapu'}
               >
-                {geocoding ? '⏳' : '🗺️'} Mapa
+                🗺️ {showMap ? 'Skrýt' : 'Mapa'}
               </button>
             </div>
-            {showMap && locationLat !== null && locationLng !== null && (
+            {showMap && (
               <LocationMapPicker
                 lat={locationLat}
                 lng={locationLng}

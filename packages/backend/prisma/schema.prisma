@@ -136,6 +136,8 @@ model User {
   scheduleImports       ScheduleImport[]
   externalCalendars     ExternalCalendarSubscription[]
   fridgeNotesAuthored   FridgeNote[]
+  fridgeNoteReactions   FridgeNoteReaction[]
+  fridgeNoteReplies     FridgeNoteReply[]
 }
 
 model PasswordResetToken {
@@ -362,6 +364,8 @@ model FridgeNote {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   attachments FridgeNoteAttachment[]
+  reactions   FridgeNoteReaction[]
+  replies     FridgeNoteReply[]
 }
 
 model FridgeNoteAttachment {
@@ -373,6 +377,28 @@ model FridgeNoteAttachment {
   size       Int
   storageKey String
   createdAt  DateTime   @default(now())
+}
+
+model FridgeNoteReaction {
+  id        String     @id @default(cuid())
+  noteId    String
+  note      FridgeNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  emoji     String
+  createdAt DateTime   @default(now())
+
+  @@unique([noteId, userId, emoji])
+}
+
+model FridgeNoteReply {
+  id        String     @id @default(cuid())
+  noteId    String
+  note      FridgeNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User       @relation(fields: [authorId], references: [id])
+  content   String     @db.Text
+  createdAt DateTime   @default(now())
 }
 
 // ─────────────────────────────────────────────

@@ -85,6 +85,12 @@ function WelcomeHero({ showWeekLink = true }: { showWeekLink?: boolean }) {
   );
 }
 
+function FridgeBoardSection() {
+  const enabled = useFeatureFlag('fridge_notes');
+  if (!enabled) return null;
+  return <FridgeBoard />;
+}
+
 function ParentDashboard() {
   const { t } = useTranslation();
   const { data: proposals, isLoading: loadingProposals } = useQuery({
@@ -182,6 +188,9 @@ function ParentDashboard() {
           )}
         </div>
 
+        {/* Fridge notes */}
+        <FridgeBoardSection />
+
         {/* Badge progress */}
         {(progress?.length ?? 0) > 0 && (
           <div className="card p-4">
@@ -235,6 +244,9 @@ function KidDashboard() {
           )}
         </div>
 
+        {/* Fridge notes */}
+        <FridgeBoardSection />
+
         <Link to="/week"
           className="w-full py-3.5 text-base flex items-center justify-center gap-2 rounded-2xl font-black bg-gradient-to-r from-primary to-accent text-white shadow-raised active:scale-[.98] transition-transform"
         >
@@ -262,7 +274,7 @@ function GuardianDashboard() {
     <div className="space-y-4 pb-4">
       <WelcomeHero />
 
-      <div className="px-4">
+      <div className="px-4 space-y-4">
         <div className="card p-4">
           <h3 className="font-bold text-ink mb-3">{t('dashboard.upcomingEvents')}</h3>
           {!events?.length ? (
@@ -273,6 +285,8 @@ function GuardianDashboard() {
             ))
           )}
         </div>
+        {/* Fridge notes */}
+        <FridgeBoardSection />
       </div>
     </div>
   );
@@ -320,7 +334,6 @@ import { useQueryClient } from '@tanstack/react-query';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const fridgeNotesEnabled = useFeatureFlag('fridge_notes');
 
   const dashboard = user?.role === 'KID'
     ? <KidDashboard />
@@ -332,11 +345,6 @@ export default function DashboardPage() {
     <div>
       <MotdBanner />
       {dashboard}
-      {fridgeNotesEnabled && (
-        <div className="px-4 pb-6 mt-4">
-          <FridgeBoard />
-        </div>
-      )}
     </div>
   );
 }

@@ -69,7 +69,7 @@ export default function ScheduleImportAdmin() {
 
   const [targetUserId, setTargetUserId] = useState('');
   const [name, setName] = useState('');
-  const [validFrom, setValidFrom] = useState('');
+  const [validFrom, setValidFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [validTo, setValidTo] = useState('');
   const [csvText, setCsvText] = useState('');
   const [previewRows, setPreviewRows] = useState<ParsedRow[] | null>(null);
@@ -118,7 +118,7 @@ export default function ScheduleImportAdmin() {
   function resetForm() {
     setTargetUserId('');
     setName('');
-    setValidFrom('');
+    setValidFrom(new Date().toISOString().slice(0, 10));
     setValidTo('');
     setCsvText('');
     setPreviewRows(null);
@@ -172,6 +172,14 @@ export default function ScheduleImportAdmin() {
   const hasErrors = previewRows?.some((r) => r.errors.length > 0) ?? false;
   const canCommit = previewRows && previewRows.length > 0 && !hasErrors && targetUserId && name && validFrom;
 
+  const missingFields = previewRows && previewRows.length > 0 && !hasErrors
+    ? [
+        !name && 'Název',
+        !targetUserId && 'Žák / uživatel',
+        !validFrom && 'Platí od',
+      ].filter(Boolean)
+    : [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-2">
@@ -188,7 +196,7 @@ export default function ScheduleImportAdmin() {
       <div className="card p-4 space-y-4">
         {/* Name */}
         <div>
-          <label className="label">Název rozvrhu</label>
+          <label className="label">Název rozvrhu <span className="text-danger">*</span></label>
           <input
             className="input"
             placeholder="Škola 2026/2027"
@@ -199,7 +207,7 @@ export default function ScheduleImportAdmin() {
 
         {/* Target user */}
         <div>
-          <label className="label">Žák / uživatel</label>
+          <label className="label">Žák / uživatel <span className="text-danger">*</span></label>
           <select
             className="input"
             value={targetUserId}
@@ -217,7 +225,7 @@ export default function ScheduleImportAdmin() {
         {/* Dates */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Platí od</label>
+            <label className="label">Platí od <span className="text-danger">*</span></label>
             <DatePicker
               value={validFrom ?? ''}
               onChange={(d) => setValidFrom(d)}
@@ -293,6 +301,12 @@ export default function ScheduleImportAdmin() {
             </button>
           )}
         </div>
+        {missingFields.length > 0 && (
+          <p className="text-xs text-warning flex items-center gap-1">
+            <AlertTriangle size={12} />
+            Před importem vyplňte: <strong>{missingFields.join(', ')}</strong>
+          </p>
+        )}
       </div>
 
       {/* Preview table */}
