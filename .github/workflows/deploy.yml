@@ -112,23 +112,28 @@ jobs:
             exit 1
           fi
 
+          # Use sudo for all docker commands — socket is root:root on this DSM version
+          # (no docker group exists; krataf has NOPASSWD sudo for /usr/bin/docker)
+          DOCKER="sudo docker"
+          DOCKER_COMPOSE="sudo docker compose"
+
           # Log in to GHCR using the CI workflow's token (read-only pull)
           for attempt in 1 2 3; do
             echo "${{ secrets.GITHUB_TOKEN }}" | \
-              docker login ghcr.io -u ${{ github.actor }} --password-stdin && break
+              $DOCKER login ghcr.io -u ${{ github.actor }} --password-stdin && break
             echo "docker login attempt $attempt failed, retrying in 10s..."
             sleep 10
           done
 
           # Pull the image already built and pushed by the CI workflow (retry on network glitch)
           for attempt in 1 2 3; do
-            docker pull ${{ env.IMAGE }}:latest && break
+            $DOCKER pull ${{ env.IMAGE }}:latest && break
             echo "docker pull attempt $attempt failed, retrying in 15s..."
             sleep 15
           done
 
           # Ensure DB is running (idempotent)
-          docker compose -f docker-compose.prod.yml --env-file .env.prod up -d postgres
+          $DOCKER_COMPOSE -f docker-compose.prod.yml --env-file .env.prod up -d postgres
           sleep 8
 
           # NOTE: We do NOT run a separate migration step here.
@@ -145,31 +150,31 @@ jobs:
           VAPID_SUBJECT=$(grep '^VAPID_SUBJECT=' .env.prod | cut -d'=' -f2- || echo "")
 
           # Ensure the docker volume for uploads exists
-          docker volume create rodinka_uploads 2>/dev/null || true
+          $DOCKER volume create rodinka_uploads 2>/dev/null || true
 
           # Fix upload directory ownership — the volume is created by root but the
           # app container runs as node (uid 1000). Run a one-shot root container to
           # chown the volume contents so the node user can write files.
-          docker run --rm \
+          $DOCKER run --rm \
             -v rodinka_uploads:/mnt/uploads \
             alpine:3.19 \
             sh -c "chown -R 1000:1000 /mnt/uploads && chmod -R 755 /mnt/uploads && echo 'Upload dir permissions fixed'"
 
           # Explicitly stop and remove any existing app container, then create fresh
           # (avoid docker compose --force-recreate which may be interfered with by Synology Container Manager)
-          docker stop rodinka_app 2>/dev/null || true
-          docker rm   rodinka_app 2>/dev/null || true
+          $DOCKER stop rodinka_app 2>/dev/null || true
+          $DOCKER rm   rodinka_app 2>/dev/null || true
 
           # Resolve any previously-failed migrations so prisma migrate deploy can proceed.
           # This is idempotent — if there are no failed migrations the command exits cleanly.
           echo "Resolving any failed migrations..."
-          docker run --rm \
+          $DOCKER run --rm \
             --network rodinka_net \
             -e "DATABASE_URL=postgresql://rodinkal:${DB_PASSWORD}@postgres:5432/rodinkal?schema=public" \
             ghcr.io/fffiiikkk/rodinkal:latest \
             sh -c "cd /app/packages/backend && npx prisma migrate resolve --rolled-back 20260713_fix_event_type_icons 2>&1 || true"
 
-          docker run -d \
+          $DOCKER run -d \
             --name rodinka_app \
             --restart unless-stopped \
             --network rodinka_net \
@@ -188,10 +193,10 @@ jobs:
 
           echo "✓ rodinka_app container started via docker run"
           sleep 5
-          docker ps --filter "name=rodinka_app" --format "table {{.Names}}\t{{.Status}}"
-          docker logs --tail 20 rodinka_app 2>&1 || true
+          $DOCKER ps --filter "name=rodinka_app" --format "table {{.Names}}\t{{.Status}}"
+          $DOCKER logs --tail 20 rodinka_app 2>&1 || true
 
-          docker image prune -f
+          $DOCKER image prune -f
           echo "Deploy complete on $(hostname) at $(date)"
           SSHEOF
 
@@ -201,7 +206,7 @@ jobs:
           echo "Container state 10 s after deploy step:"
           sleep 10
           ssh ${{ env.SSH_HOST }} \
-            "export PATH=/usr/local/bin:\$PATH; docker ps -a --filter name=rodinka --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'; echo '--- logs (last 20) ---'; docker logs --tail 20 rodinka_app 2>&1 || echo '(container not found)'" || true
+            "export PATH=/usr/local/bin:\$PATH; sudo docker ps -a --filter name=rodinka --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'; echo '--- logs (last 20) ---'; sudo docker logs --tail 20 rodinka_app 2>&1 || echo '(container not found)'" || true
 
       # ── Health check — poll until app responds or timeout after 120 s ─────
       - name: Health check
@@ -220,9 +225,9 @@ jobs:
           echo "✗ Health check failed after 120 s — diagnostics:"
           ssh ${{ env.SSH_HOST }} "export PATH=/usr/local/bin:\$PATH; \
             echo '--- docker ps -a ---'; \
-            docker ps -a --filter name=rodinka --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'; \
+            sudo docker ps -a --filter name=rodinka --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'; \
             echo '--- rodinka_app logs ---'; \
-            docker logs --tail 60 rodinka_app 2>&1 || echo '(no container)'; \
+            sudo docker logs --tail 60 rodinka_app 2>&1 || echo '(no container)'; \
             echo '--- rodinka_db logs ---'; \
-            docker logs --tail 20 rodinka_db 2>&1 || echo '(no db container)'" || true
+            sudo docker logs --tail 20 rodinka_db 2>&1 || echo '(no db container)'" || true
           exit 1
