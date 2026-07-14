@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
-type ToastType = 'success' | 'error' | 'info';
+type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface Toast {
   id: string;
@@ -75,6 +75,11 @@ const TOAST_STYLES = {
     wrapper: 'bg-surface-raised text-ink border border-border shadow-raised',
     icon: <Info size={17} className="shrink-0 text-primary" />,
     close: 'hover:bg-surface-overlay',
+  },
+  warning: {
+    wrapper: 'bg-amber-500 text-white',
+    icon: <AlertTriangle size={17} className="shrink-0" />,
+    close: 'hover:bg-white/20',
   },
 };
 

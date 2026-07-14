@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api.js';
 import { useAuth } from '../../hooks/useAuth.js';
-import { useToast } from '../../hooks/useToast.js';
+import { useToast } from '../ui/Toast.js';
 import Sheet from '../ui/Sheet.js';
 import RichTextEditor from '../ui/RichTextEditor.js';
 import Avatar from '../ui/Avatar.js';

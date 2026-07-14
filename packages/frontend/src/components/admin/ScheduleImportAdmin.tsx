@@ -6,7 +6,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import { useUsers } from '../../hooks/useUsers.js';
-import { useToast } from '../../hooks/useToast.js';
+import { useToast } from '../ui/Toast.js';
 import DatePicker from '../ui/DatePicker.js';
 
 interface ParsedRow {
@@ -219,15 +219,15 @@ export default function ScheduleImportAdmin() {
           <div>
             <label className="label">Platí od</label>
             <DatePicker
-              value={validFrom ? new Date(validFrom) : null}
-              onChange={(d) => setValidFrom(d ? d.toISOString().slice(0, 10) : '')}
+              value={validFrom ?? ''}
+              onChange={(d) => setValidFrom(d)}
             />
           </div>
           <div>
             <label className="label">Platí do (volitelné)</label>
             <DatePicker
-              value={validTo ? new Date(validTo) : null}
-              onChange={(d) => setValidTo(d ? d.toISOString().slice(0, 10) : '')}
+              value={validTo ?? ''}
+              onChange={(d) => setValidTo(d)}
             />
           </div>
         </div>

@@ -44,9 +44,9 @@ export default function ScheduleSummaryChip({ group, color }: Props) {
                 {ev.start.slice(11, 16)}
               </span>
               <span className="text-xs text-ink font-medium truncate flex-1">{ev.title}</span>
-              {ev.location && (
+              {typeof ev.location === 'string' && ev.location && (
                 <span className="text-[10px] text-ink-muted truncate max-w-[80px]">
-                  {ev.location as string}
+                  {ev.location}
                 </span>
               )}
             </div>
