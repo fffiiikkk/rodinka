@@ -89,7 +89,9 @@ export const eventService = {
     };
 
     if (!params.includeHolidays) where.isHoliday = false;
+    // Always exclude cancelled events from calendar views; callers can override by passing status explicitly
     if (params.status) where.status = params.status;
+    else where.status = { not: 'CANCELLED' };
     if (params.eventTypeId) where.eventTypeId = params.eventTypeId;
     if (params.userId) {
       where.OR = [
