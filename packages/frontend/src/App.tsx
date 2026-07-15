@@ -57,9 +57,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const theme = (user?.theme ?? 'klasika') as any;
   const colorMode = (user?.colorMode ?? 'SYSTEM') as any;
+  const fontScale = (user?.fontScale ?? 'NORMAL') as any;
 
   return (
-    <ThemeProvider initialTheme={theme} initialColorMode={colorMode}>
+    <ThemeProvider initialTheme={theme} initialColorMode={colorMode} initialFontScale={fontScale}>
       <ToastProvider>
         <BadgeToastProvider>
           <div className="flex flex-col min-h-dvh">

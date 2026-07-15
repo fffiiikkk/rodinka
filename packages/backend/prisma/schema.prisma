@@ -94,6 +94,7 @@ model User {
   preferredLanguage Language  @default(CS)
   theme             String    @default("klasika")
   colorMode         ColorMode @default(SYSTEM)
+  fontScale         String    @default("NORMAL") // NORMAL | LARGE | XLARGE
   // Notification preferences (stored as JSON for flexibility)
   notifPrefs        Json      @default("{\"emailReminders\":true,\"emailWeeklyDigest\":true,\"pushReminders\":true,\"pushProposalUpdates\":true,\"reminderMinutesBefore\":60}")
   isActive          Boolean   @default(true)

@@ -11,7 +11,7 @@ import { useTheme } from '../theme/ThemeProvider.js';
 import { THEMES } from '@rodinkal/shared';
 import Avatar from '../components/ui/Avatar.js';
 import { useToast } from '../components/ui/Toast.js';
-import type { ColorMode, ThemeKey } from '@rodinkal/shared';
+import type { ColorMode, ThemeKey, FontScale } from '@rodinkal/shared';
 
 const RELATIONSHIP_OPTIONS = [
   'Tatínek', 'Maminka',
@@ -63,7 +63,7 @@ export default function ProfilePage() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { theme, colorMode, setTheme, setColorMode } = useTheme();
+  const { theme, colorMode, fontScale, setTheme, setColorMode, setFontScale } = useTheme();
   const { data: badges } = useMyBadges();
   const push = usePushNotifications();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -121,12 +121,17 @@ export default function ProfilePage() {
 
   const handleThemeChange = async (t: ThemeKey) => {
     setTheme(t);
-    await api.patch('/users/me/theme', { theme: t, colorMode });
+    await api.patch('/users/me/theme', { theme: t, colorMode, fontScale });
   };
 
   const handleColorModeChange = async (m: ColorMode) => {
     setColorMode(m);
-    await api.patch('/users/me/theme', { theme, colorMode: m });
+    await api.patch('/users/me/theme', { theme, colorMode: m, fontScale });
+  };
+
+  const handleFontScaleChange = async (s: FontScale) => {
+    setFontScale(s);
+    await api.patch('/users/me/theme', { theme, colorMode, fontScale: s });
   };
 
   const handleLanguage = async (lang: string) => {
@@ -276,6 +281,42 @@ export default function ProfilePage() {
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Accessibility – font scale */}
+      <div className="card p-4 space-y-3">
+        <h3 className="font-bold text-ink flex items-center gap-2">
+          <span className="text-lg">👁️</span> Přístupnost
+        </h3>
+        <p className="text-xs text-ink-muted">Velikost písma pro snadnější čtení. Vhodné pro starší členy rodiny.</p>
+        <div className="grid grid-cols-3 gap-2">
+          {(
+            [
+              { value: 'NORMAL',  label: 'Normální',     preview: 'Aa',   desc: 'Výchozí velikost' },
+              { value: 'LARGE',   label: 'Velké písmo',  preview: 'Aa',   desc: '~18 px základ' },
+              { value: 'XLARGE',  label: 'Největší',     preview: 'Aa',   desc: '~20 px základ' },
+            ] as { value: FontScale; label: string; preview: string; desc: string }[]
+          ).map(({ value, label, preview, desc }) => (
+            <button
+              key={value}
+              onClick={() => handleFontScaleChange(value)}
+              className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                fontScale === value
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-ink-muted hover:border-primary/50'
+              }`}
+            >
+              <span
+                className="font-bold leading-none"
+                style={{ fontSize: value === 'NORMAL' ? '1.1rem' : value === 'LARGE' ? '1.3rem' : '1.55rem' }}
+              >
+                {preview}
+              </span>
+              <span className="text-xs font-semibold mt-0.5">{label}</span>
+              <span className="text-[10px] opacity-60">{desc}</span>
+            </button>
+          ))}
         </div>
       </div>
 

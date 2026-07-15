@@ -213,3 +213,40 @@
   --color-border: #14532d;
   --color-border-strong: #166534;
 }
+
+/* ── Font Scale / Accessibility ──────────────────────────── */
+
+:root[data-font-scale="large"] {
+  font-size: 112.5%;
+  line-height: 1.65;
+}
+:root[data-font-scale="xlarge"] {
+  font-size: 125%;
+  line-height: 1.75;
+}
+
+/* Contrast boost (light mode) */
+:root[data-font-scale="large"][data-color-mode="light"],
+:root[data-font-scale="xlarge"][data-color-mode="light"] {
+  --color-ink-muted:        #334155;
+  --color-ink-faint:        #475569;
+  --color-border:           #94a3b8;
+  --color-border-strong:    #64748b;
+}
+/* Extra contrast (xlarge light only) */
+:root[data-font-scale="xlarge"][data-color-mode="light"] {
+  --color-ink-muted:        #1e293b;
+  --color-ink-faint:        #334155;
+}
+
+/* Contrast boost (dark mode) */
+:root[data-font-scale="large"][data-color-mode="dark"],
+:root[data-font-scale="xlarge"][data-color-mode="dark"] {
+  --color-ink-muted:        #cbd5e1;
+  --color-ink-faint:        #94a3b8;
+  --color-border:           #475569;
+}
+:root[data-font-scale="xlarge"][data-color-mode="dark"] {
+  --color-ink-muted:        #e2e8f0;
+  --color-ink-faint:        #cbd5e1;
+}

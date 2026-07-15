@@ -4,6 +4,7 @@ export const RoleSchema = z.enum(['PARENT', 'GRANDPARENT', 'RELATIVE', 'KID', 'G
 export const LanguageSchema = z.enum(['CS', 'EN']);
 export const ColorModeSchema = z.enum(['LIGHT', 'DARK', 'SYSTEM']);
 export const ThemeSchema = z.enum(['klasika', 'ocean', 'led', 'leto', 'les']);
+export const FontScaleSchema = z.enum(['NORMAL', 'LARGE', 'XLARGE']);
 
 export const UserPublicSchema = z.object({
   id: z.string(),
@@ -17,6 +18,7 @@ export const UserPublicSchema = z.object({
   preferredLanguage: LanguageSchema,
   theme: ThemeSchema,
   colorMode: ColorModeSchema,
+  fontScale: FontScaleSchema.default('NORMAL'),
   isActive: z.boolean(),
   createdAt: z.string(),
   isImpersonating: z.boolean().optional(),
@@ -68,3 +70,4 @@ export type UserPublic = z.infer<typeof UserPublicSchema>;
 export type CreateUserInput = z.infer<typeof CreateUserSchema>;
 export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;
 export type AdminUpdateUserInput = z.infer<typeof AdminUpdateUserSchema>;
+export type { FontScale } from '../types/index.js';

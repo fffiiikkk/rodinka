@@ -15,7 +15,7 @@ function resolvePhotoUrl(photoPath: string | null): string | null {
 function serializeUser(user: {
   id: string; username: string; name: string; email: string; mobile: string | null;
   dateOfBirth: Date | null; role: string; photoPath: string | null;
-  preferredLanguage: string; theme: string; colorMode: string;
+  preferredLanguage: string; theme: string; colorMode: string; fontScale: string;
   isActive: boolean; createdAt: Date; relationship?: string | null; nickname?: string | null;
   nameDayOverride?: string | null;
 }) {
@@ -31,6 +31,7 @@ function serializeUser(user: {
     preferredLanguage: user.preferredLanguage,
     theme: user.theme,
     colorMode: user.colorMode,
+    fontScale: user.fontScale,
     isActive: user.isActive,
     createdAt: user.createdAt.toISOString(),
     relationship: user.relationship ?? null,
@@ -42,7 +43,7 @@ function serializeUser(user: {
 const SELECT = {
   id: true, username: true, name: true, email: true, mobile: true,
   dateOfBirth: true, role: true, photoPath: true, preferredLanguage: true,
-  theme: true, colorMode: true, isActive: true, createdAt: true,
+  theme: true, colorMode: true, fontScale: true, isActive: true, createdAt: true,
   relationship: true, nickname: true, nameDayOverride: true,
 };
 
@@ -257,10 +258,13 @@ export const userService = {
     });
   },
 
-  async updateTheme(id: string, theme: string, colorMode: string) {
+  async updateTheme(id: string, theme: string, colorMode: string, fontScale?: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await prisma.user.update({ where: { id }, data: { theme: theme as any, colorMode: colorMode as any } });
-    await activityService.log(id, 'THEME_CHANGED', { theme, colorMode });
+    await prisma.user.update({
+      where: { id },
+      data: { theme: theme as any, colorMode: colorMode as any, ...(fontScale !== undefined && { fontScale }) },
+    });
+    await activityService.log(id, 'THEME_CHANGED', { theme, colorMode, fontScale });
   },
 
   async getIcsToken(id: string): Promise<string> {

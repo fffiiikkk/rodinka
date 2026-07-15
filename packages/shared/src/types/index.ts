@@ -27,6 +27,7 @@ export type ActivityEventType =
   | 'APP_INSTALLED';
 
 export type ThemeKey = 'klasika' | 'ocean' | 'led' | 'leto' | 'les';
+export type FontScale = 'NORMAL' | 'LARGE' | 'XLARGE';
 
 export interface ApiErrorResponse {
   error: string;

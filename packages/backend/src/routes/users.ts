@@ -50,8 +50,8 @@ router.patch('/me', async (req, res, next) => {
 
 router.patch('/me/theme', async (req, res, next) => {
   try {
-    const { theme, colorMode } = req.body as { theme: string; colorMode: string };
-    await userService.updateTheme(req.user!.id, theme, colorMode);
+    const { theme, colorMode, fontScale } = req.body as { theme: string; colorMode: string; fontScale?: string };
+    await userService.updateTheme(req.user!.id, theme, colorMode, fontScale);
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
