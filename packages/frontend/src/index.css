@@ -147,6 +147,12 @@
 .pb-nav {
   padding-bottom: calc(4.5rem + var(--sab, 0px));
 }
+:root[data-font-scale="large"] .pb-nav {
+  padding-bottom: calc(5.25rem + var(--sab, 0px));
+}
+:root[data-font-scale="xlarge"] .pb-nav {
+  padding-bottom: calc(6.25rem + var(--sab, 0px));
+}
 
 .safe-top {
   padding-top: var(--sat, 0px);

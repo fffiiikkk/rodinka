@@ -250,3 +250,56 @@
   --color-ink-muted:        #e2e8f0;
   --color-ink-faint:        #cbd5e1;
 }
+
+/* ── Bottom navigation: larger icons + labels ────────────── */
+:root[data-font-scale="large"] .bottom-nav {
+  height: 4.75rem;
+}
+:root[data-font-scale="xlarge"] .bottom-nav {
+  height: 5.5rem;
+}
+:root[data-font-scale="large"] .bottom-nav svg {
+  width: 26px !important;
+  height: 26px !important;
+}
+:root[data-font-scale="xlarge"] .bottom-nav svg {
+  width: 30px !important;
+  height: 30px !important;
+}
+:root[data-font-scale="large"] .bottom-nav-label {
+  font-size: 0.7rem;
+}
+:root[data-font-scale="xlarge"] .bottom-nav-label {
+  font-size: 0.8rem;
+}
+
+/* ── Buttons: taller tap targets ─────────────────────────── */
+:root[data-font-scale="large"] .btn-primary,
+:root[data-font-scale="large"] .btn-secondary,
+:root[data-font-scale="large"] button.input,
+:root[data-font-scale="large"] .card button {
+  min-height: 2.75rem;
+}
+:root[data-font-scale="xlarge"] .btn-primary,
+:root[data-font-scale="xlarge"] .btn-secondary,
+:root[data-font-scale="xlarge"] button.input,
+:root[data-font-scale="xlarge"] .card button {
+  min-height: 3rem;
+}
+
+/* ── Event rows: bigger icon + more breathing room ────────── */
+:root[data-font-scale="large"] .event-row .event-row-icon,
+:root[data-font-scale="xlarge"] .event-row .event-row-icon {
+  font-size: 1.6rem;
+}
+:root[data-font-scale="large"] .event-row {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+:root[data-font-scale="xlarge"] .event-row {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+:root[data-font-scale="xlarge"] .event-row .event-row-icon {
+  font-size: 1.85rem;
+}

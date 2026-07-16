@@ -30,7 +30,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-30 bg-surface/90 backdrop-blur-xl border-t border-border/60"
+      className="bottom-nav fixed bottom-0 left-0 right-0 z-30 bg-surface/90 backdrop-blur-xl border-t border-border/60"
       style={{ paddingBottom: 'var(--sab, 0px)' }}
     >
       {/* Thin top gradient accent */}
@@ -62,7 +62,7 @@ export default function BottomNav() {
                 />
 
                 <span
-                  className={`text-[10px] font-bold relative z-10 transition-colors duration-200 ${
+                  className={`bottom-nav-label font-bold relative z-10 transition-colors duration-200 text-[10px] ${
                     isActive ? 'text-primary' : 'text-ink-faint group-hover:text-ink-muted'
                   }`}
                 >

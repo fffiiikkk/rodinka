@@ -61,6 +61,7 @@ async function resizePhoto(file: File): Promise<File> {
 export default function ProfilePage() {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
+  const isKid = user?.role === 'KID';
   const { toast } = useToast();
   const qc = useQueryClient();
   const { theme, colorMode, fontScale, setTheme, setColorMode, setFontScale } = useTheme();
@@ -214,29 +215,33 @@ export default function ProfilePage() {
           <label className="label">{t('profile.email')}</label>
           <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
-        <div>
-          <label className="label">{t('profile.mobile')}</label>
-          <input type="tel" className="input" value={mobile} onChange={(e) => setMobile(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Vztah k dětem</label>
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {RELATIONSHIP_OPTIONS.map((opt) => (
-              <button key={opt} type="button"
-                onClick={() => setRelationship(opt === relationship ? '' : opt)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                  relationship === opt
-                    ? 'bg-primary text-white border-primary'
-                    : 'border-border bg-surface-raised hover:border-primary/50'
-                }`}
-              >
-                {opt}
-              </button>
-            ))}
+        {!isKid && (
+          <div>
+            <label className="label">{t('profile.mobile')}</label>
+            <input type="tel" className="input" value={mobile} onChange={(e) => setMobile(e.target.value)} />
           </div>
-          <input className="input" placeholder="nebo napiš vlastní…"
-            value={relationship} onChange={(e) => setRelationship(e.target.value)} />
-        </div>
+        )}
+        {!isKid && (
+          <div>
+            <label className="label">Vztah k dětem</label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {RELATIONSHIP_OPTIONS.map((opt) => (
+                <button key={opt} type="button"
+                  onClick={() => setRelationship(opt === relationship ? '' : opt)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                    relationship === opt
+                      ? 'bg-primary text-white border-primary'
+                      : 'border-border bg-surface-raised hover:border-primary/50'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+            <input className="input" placeholder="nebo napiš vlastní…"
+              value={relationship} onChange={(e) => setRelationship(e.target.value)} />
+          </div>
+        )}
         <button onClick={handleSaveProfile} disabled={saving} className="btn-primary w-full">
           {saving ? t('common.loading') : t('profile.save')}
         </button>
@@ -400,8 +405,8 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* External Calendars */}
-      <ExternalCalendarsSection />
+      {/* External Calendars — not relevant for kids */}
+      {!isKid && <ExternalCalendarsSection />}
 
       {/* Logout */}
       <button

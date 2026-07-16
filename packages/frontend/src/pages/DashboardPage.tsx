@@ -1,13 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { isSameDay } from 'date-fns';
 import { useAuth } from '../hooks/useAuth.js';
 import { useEvents } from '../hooks/useEvents.js';
 import { useBadgeProgress } from '../hooks/useBadges.js';
 import { useFeatureFlag } from '../hooks/useFeatureFlag.js';
 import { api } from '../lib/api.js';
-import { addDays, formatRelativeDate, formatDate } from '../lib/dates.js';
+import { addDays, formatRelativeDate, formatDate, formatTime, parseISO, isToday, format } from '../lib/dates.js';
 import Avatar from '../components/ui/Avatar.js';
 import FridgeBoard from '../components/dashboard/FridgeBoard.js';
 import { AlertTriangle, CheckCircle2, Clock, CalendarRange, ChevronRight } from 'lucide-react';
@@ -91,6 +92,150 @@ function FridgeBoardSection() {
   return <FridgeBoard />;
 }
 
+// ── Today Hero Card ──────────────────────────────────────────────────────────
+// Large-format card showing today's events; designed for grandparents / large-text mode.
+
+const CS_DAY_NAMES = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
+const CS_MONTH_NAMES = [
+  'ledna', 'února', 'března', 'dubna', 'května', 'června',
+  'července', 'srpna', 'září', 'října', 'listopadu', 'prosince',
+];
+
+function todayLabel(): string {
+  const d = new Date();
+  return `${CS_DAY_NAMES[d.getDay()]}, ${d.getDate()}. ${CS_MONTH_NAMES[d.getMonth()]}`;
+}
+
+function TodayHeroCard({ events }: { events: any[] }) {
+  const todayEvts = events.filter((e) => isToday(parseISO(e.start)));
+
+  return (
+    <div className="mx-4 rounded-2xl overflow-hidden border border-primary/25 shadow-sm">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-primary to-accent px-4 py-3">
+        <p className="font-black text-white text-xl leading-none">Dnes</p>
+        <p className="text-white/80 text-sm mt-0.5 capitalize">{todayLabel()}</p>
+      </div>
+
+      {/* Event list */}
+      <div className="bg-surface divide-y divide-border/60">
+        {todayEvts.length === 0 ? (
+          <div className="px-4 py-5 text-center">
+            <span className="text-3xl">☀️</span>
+            <p className="text-ink-muted mt-2">Dnes nic naplánováno</p>
+          </div>
+        ) : (
+          todayEvts.map((e) => {
+            const driver = e.transportUser;
+            const driverName = driver ? (driver.nickname ?? driver.name?.split(' ')[0]) : null;
+            return (
+              <Link
+                key={e.id}
+                to={`/event/${e.id}`}
+                className="event-row flex items-center gap-3 px-4 py-3 hover:bg-surface-raised active:bg-surface-overlay transition-colors"
+              >
+                <span className="event-row-icon text-3xl shrink-0 leading-none">{e.eventType?.icon ?? '📌'}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-ink text-base leading-snug">{e.title}</p>
+                  <p className="text-sm text-ink-muted mt-0.5">
+                    {formatTime(e.start)}
+                    {driverName && <span> · 🚗 {driverName}</span>}
+                  </p>
+                </div>
+                <ChevronRight size={16} className="text-ink-faint shrink-0" />
+              </Link>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Week Emoji Strip ─────────────────────────────────────────────────────────
+// Horizontal 7-day strip; each column shows event emojis + time for that day.
+
+const CS_DAY_SHORT = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
+
+function WeekEmojiStrip({ events }: { events: any[] }) {
+  const days = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
+
+  return (
+    <div className="mx-4">
+      <h3 className="font-bold text-ink mb-2 text-sm">Tento týden</h3>
+      <div className="flex gap-1.5 overflow-x-auto pb-1 snap-x snap-mandatory">
+        {days.map((day, idx) => {
+          const dayEvts = events.filter((e) => isSameDay(parseISO(e.start), day));
+          const isCurrentDay = idx === 0;
+
+          return (
+            <div
+              key={idx}
+              className={`flex-shrink-0 snap-start flex flex-col items-center min-w-[3.2rem] w-[3.2rem] rounded-xl py-2 px-1 transition-colors ${
+                isCurrentDay
+                  ? 'bg-primary/15 ring-1 ring-primary/30'
+                  : 'bg-surface-raised'
+              }`}
+            >
+              <span className={`text-[11px] font-black leading-none ${isCurrentDay ? 'text-primary' : 'text-ink-muted'}`}>
+                {isCurrentDay ? 'Dnes' : CS_DAY_SHORT[day.getDay()]}
+              </span>
+              <span className={`text-[10px] leading-none mt-0.5 ${isCurrentDay ? 'text-primary/70' : 'text-ink-faint'}`}>
+                {format(day, 'd.M.')}
+              </span>
+
+              <div className="mt-1.5 flex flex-col items-center gap-0.5 min-h-[2.5rem]">
+                {dayEvts.length === 0 ? (
+                  <span className="text-ink-faint text-lg mt-1">·</span>
+                ) : (
+                  <>
+                    {dayEvts.slice(0, 2).map((e, j) => (
+                      <Link
+                        key={j}
+                        to={`/event/${e.id}`}
+                        title={`${e.title} — ${formatTime(e.start)}`}
+                        className="leading-none active:scale-90 transition-transform"
+                      >
+                        <span className="text-xl">{e.eventType?.icon ?? '📌'}</span>
+                      </Link>
+                    ))}
+                    {dayEvts.length > 2 && (
+                      <span className="text-[10px] font-bold text-ink-muted">+{dayEvts.length - 2}</span>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Grandparent / Relative Dashboard ────────────────────────────────────────
+// Purpose-built view for GRANDPARENT and RELATIVE roles; also shown to any user
+// with LARGE or XLARGE font scale set.
+
+function GrandparentDashboard() {
+  const from = new Date();
+  const to = addDays(new Date(), 7);
+  const { data: events = [] } = useEvents(from, to);
+
+  return (
+    <div className="space-y-4 pb-4">
+      <WelcomeHero />
+      <TodayHeroCard events={events as any[]} />
+      <div className="px-4">
+        <WeekEmojiStrip events={events as any[]} />
+      </div>
+      <div className="px-4">
+        <FridgeBoardSection />
+      </div>
+    </div>
+  );
+}
+
 function ParentDashboard() {
   const { t } = useTranslation();
   const { data: proposals, isLoading: loadingProposals } = useQuery({
@@ -104,7 +249,6 @@ function ParentDashboard() {
       to: addDays(new Date(), 14).toISOString(),
     })).then((r) => r.gaps),
   });
-  const { user } = useAuth();
   const from = new Date(); const to = addDays(new Date(), 7);
   const { data: events, isLoading: loadingEvents } = useEvents(from, to);
   const { data: progress } = useBadgeProgress();
@@ -266,7 +410,6 @@ function KidDashboard() {
 
 function GuardianDashboard() {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const from = new Date(); const to = addDays(new Date(), 14);
   const { data: events } = useEvents(from, to);
 
@@ -297,10 +440,10 @@ function EventRow({ event, large = false }: { event: any; large?: boolean }) {
   return (
     <Link
       to={`/event/${event.id}`}
-      className="flex items-center gap-3 py-2.5 px-2 -mx-2 rounded-xl border-b border-border/50 last:border-0 hover:bg-surface-raised active:bg-surface-overlay transition-colors group"
+      className="event-row flex items-center gap-3 py-2.5 px-2 -mx-2 rounded-xl border-b border-border/50 last:border-0 hover:bg-surface-raised active:bg-surface-overlay transition-colors group"
       style={{ borderLeftColor: color, borderLeftWidth: 3, borderLeftStyle: 'solid' }}
     >
-      <span className={`shrink-0 ${large ? 'text-2xl' : 'text-xl'}`}>{event.eventType?.icon ?? '📌'}</span>
+      <span className={`event-row-icon shrink-0 ${large ? 'text-2xl' : 'text-xl'}`}>{event.eventType?.icon ?? '📌'}</span>
       <div className="flex-1 min-w-0">
         <p className={`font-semibold truncate text-ink ${large ? 'text-base' : 'text-sm'}`}>{event.title}</p>
         <p className="text-xs text-ink-muted">{formatRelativeDate(event.start)}{event.location ? ` · ${event.location}` : ''}</p>
@@ -330,15 +473,17 @@ function RejectButton({ eventId }: { eventId: string }) {
   );
 }
 
-import { useQueryClient } from '@tanstack/react-query';
-
 export default function DashboardPage() {
   const { user } = useAuth();
+
+  const isGrandparentRole = user?.role === 'GRANDPARENT' || user?.role === 'RELATIVE';
 
   const dashboard = user?.role === 'KID'
     ? <KidDashboard />
     : user?.role === 'PARENT'
     ? <ParentDashboard />
+    : isGrandparentRole
+    ? <GrandparentDashboard />
     : <GuardianDashboard />;
 
   return (
