@@ -38,17 +38,18 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
 
 function AnimatedContent({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  // mode="sync" avoids a blank gap between exit-animation-end and the next
-  // page mounting (which mode="wait" can cause with lazy-loaded routes)
+  // mode="popLayout" pops the exiting page out of document flow (absolute)
+  // before animating it out, so the entering page never stacks on top of it.
+  // This avoids both the blank-screen issue (mode="wait") and the double-
+  // content issue (mode="sync").
   return (
-    <AnimatePresence mode="sync" initial={false}>
+    <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
         key={location.pathname}
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.12, ease: 'easeOut' }}
-        style={{ position: 'relative' }}
       >
         {children}
       </motion.div>
