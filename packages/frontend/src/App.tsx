@@ -38,14 +38,17 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
 
 function AnimatedContent({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  // mode="sync" avoids a blank gap between exit-animation-end and the next
+  // page mounting (which mode="wait" can cause with lazy-loaded routes)
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence mode="sync" initial={false}>
       <motion.div
         key={location.pathname}
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
+        transition={{ duration: 0.12, ease: 'easeOut' }}
+        style={{ position: 'relative' }}
       >
         {children}
       </motion.div>

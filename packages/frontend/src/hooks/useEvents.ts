@@ -7,6 +7,14 @@ interface EventsResponse {
   events: Event[];
 }
 
+/** Invalidate every query that depends on event data. */
+function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['events'] });
+  qc.invalidateQueries({ queryKey: ['coverage-gaps'] });
+  qc.invalidateQueries({ queryKey: ['calendar-layer'] });
+  qc.invalidateQueries({ queryKey: ['badges'] });
+}
+
 export function useEvents(from: Date, to: Date, opts?: { userId?: string; eventTypeId?: string }) {
   const params = new URLSearchParams({
     from: from.toISOString(),
@@ -18,7 +26,7 @@ export function useEvents(from: Date, to: Date, opts?: { userId?: string; eventT
   return useQuery<Event[]>({
     queryKey: ['events', format(from, 'yyyy-MM-dd'), format(to, 'yyyy-MM-dd'), opts],
     queryFn: () => api.get<EventsResponse>(`/events?${params}`).then((r) => r.events),
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 }
 
@@ -34,6 +42,7 @@ export function useEvent(id: string) {
     queryKey: ['events', id],
     queryFn: () => api.get<{ event: Event }>(`/events/${id}`).then((r) => r.event),
     enabled: !!id,
+    staleTime: 10_000,
   });
 }
 
@@ -41,7 +50,7 @@ export function useCreateEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateEventInput) => api.post<{ event: Event }>('/events', data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); },
+    onSuccess: () => { invalidateAll(qc); },
   });
 }
 
@@ -50,7 +59,7 @@ export function useUpdateEvent() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateEventInput }) =>
       api.patch<{ event: Event }>(`/events/${id}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); },
+    onSuccess: () => { invalidateAll(qc); },
   });
 }
 
@@ -58,10 +67,7 @@ export function useApproveEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.post(`/events/${id}/approve`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['events'] });
-      qc.invalidateQueries({ queryKey: ['badges'] });
-    },
+    onSuccess: () => { invalidateAll(qc); },
   });
 }
 
@@ -69,7 +75,7 @@ export function useRejectEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.post(`/events/${id}/reject`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); },
+    onSuccess: () => { invalidateAll(qc); },
   });
 }
 
@@ -77,7 +83,7 @@ export function useCancelEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/events/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); },
+    onSuccess: () => { invalidateAll(qc); },
   });
 }
 
@@ -87,7 +93,7 @@ export function useCreateException() {
   return useMutation({
     mutationFn: ({ parentId, data }: { parentId: string; data: CreateEventInput }) =>
       api.post<{ event: Event }>(`/events/${parentId}/exception`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); },
+    onSuccess: () => { invalidateAll(qc); },
   });
 }
 
@@ -97,6 +103,6 @@ export function useCancelOccurrence() {
   return useMutation({
     mutationFn: ({ parentId, date }: { parentId: string; date: string }) =>
       api.delete(`/events/${parentId}/occurrence/${date}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); },
+    onSuccess: () => { invalidateAll(qc); },
   });
 }

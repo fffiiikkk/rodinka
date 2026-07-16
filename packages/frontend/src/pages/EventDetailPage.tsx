@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MapPin, Calendar, Users, Paperclip, ChevronLeft, Check, X, Car, Pencil, Loader2, Copy, RefreshCw, Video, ExternalLink } from 'lucide-react';
@@ -107,6 +107,46 @@ function OccurrenceChoiceDialog({
   );
 }
 
+/**
+ * Hook that lazily geocodes a location text string and returns lat/lng.
+ * Only runs when storedLat/storedLng are absent and location is non-empty.
+ */
+function useAutoGeocode(location: string | null | undefined, storedLat: number | null, storedLng: number | null) {
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    storedLat != null && storedLng != null ? { lat: storedLat, lng: storedLng } : null,
+  );
+  const [geocoding, setGeocoding] = useState(false);
+  const attempted = useRef(false);
+
+  useEffect(() => {
+    // Already have stored coords or already attempted
+    if (coords || attempted.current || !location?.trim()) return;
+    attempted.current = true;
+
+    setGeocoding(true);
+    const ctrl = new AbortController();
+    fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(location)}&format=json&limit=1`,
+      {
+        headers: { 'Accept-Language': 'cs,en', 'User-Agent': 'Rodinka/1.0 (family-calendar; krataf.dev)' },
+        signal: ctrl.signal,
+      },
+    )
+      .then((r) => r.json())
+      .then((data: Array<{ lat: string; lon: string }>) => {
+        if (data.length > 0) {
+          setCoords({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+        }
+      })
+      .catch(() => { /* silently ignore */ })
+      .finally(() => setGeocoding(false));
+
+    return () => ctrl.abort();
+  }, [location, coords]);
+
+  return { coords, geocoding };
+}
+
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -147,6 +187,13 @@ export default function EventDetailPage() {
 
   const isAdmin = user?.role === 'PARENT';
   const color = event.eventType?.color ?? event.colorOverride ?? '#a3a3a3';
+
+  // Auto-geocode location text when stored coords are missing
+  const { coords: mapCoords, geocoding: mapGeocoding } = useAutoGeocode(
+    event.location,
+    (event as any).locationLat ?? null,
+    (event as any).locationLng ?? null,
+  );
 
   const handleCopy = async () => {
     if (!copyDate || !event) return;
@@ -255,19 +302,32 @@ export default function EventDetailPage() {
             <div className="flex items-center gap-2.5 mb-2">
               <MapPin size={15} className="text-primary shrink-0" />
               <p className="text-sm text-ink flex-1 truncate">{event.location}</p>
+              {mapGeocoding && (
+                <span className="text-[10px] text-ink-faint animate-pulse shrink-0">hledám…</span>
+              )}
             </div>
-            {(event as any).locationLat != null && (event as any).locationLng != null && (
+            {mapCoords && (
               <>
                 <LocationMap
-                  lat={(event as any).locationLat}
-                  lng={(event as any).locationLng}
+                  lat={mapCoords.lat}
+                  lng={mapCoords.lng}
                   label={event.location}
                 />
                 <CoordinatesRow
-                  lat={(event as any).locationLat}
-                  lng={(event as any).locationLng}
+                  lat={mapCoords.lat}
+                  lng={mapCoords.lng}
                 />
               </>
+            )}
+            {!mapCoords && !mapGeocoding && (
+              <a
+                href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(event.location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-0.5"
+              >
+                <MapPin size={11} /> Otevřít v mapách
+              </a>
             )}
           </div>
         )}
