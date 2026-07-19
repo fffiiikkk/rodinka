@@ -17,7 +17,7 @@ import { useEvents } from '../hooks/useEvents.js';
 import Sheet from '../components/ui/Sheet.js';
 import Avatar from '../components/ui/Avatar.js';
 import ScheduleSummaryChip from '../components/calendar/ScheduleSummaryChip.js';
-import { groupByScheduleImport } from '../lib/scheduleGroups.js';
+import { groupByScheduleImport, type ScheduleGroup } from '../lib/scheduleGroups.js';
 import type { Event, UserPublic } from '@rodinkal/shared';
 
 /** Render icon only if it looks like an emoji/symbol — not a plain-text label. */
@@ -95,6 +95,19 @@ function canonicalId(e: Event): string {
   return (e as any).originalId ?? e.id;
 }
 
+/** Escort identity for collision detection — same key means same person (or both unassigned). */
+function escortKey(e: Event): string | null {
+  const t = e.transport;
+  if (!t) return null;
+  if (t.userId) return `user:${t.userId}`;
+  if (t.externalName) return `ext:${t.externalName}`;
+  return null;
+}
+
+function isRealConflict(a: Event, b: Event): boolean {
+  return escortKey(a) === escortKey(b);
+}
+
 function findConflictPairs(kidEvents: Event[][]): ConflictPair[] {
   const pairs: ConflictPair[] = [];
   for (let i = 0; i < kidEvents.length; i++) {
@@ -103,7 +116,7 @@ function findConflictPairs(kidEvents: Event[][]): ConflictPair[] {
         for (const eb of kidEvents[j]!) {
           // Same event (or same recurring occurrence) shared by both kids — not a conflict
           if (canonicalId(ea) === canonicalId(eb)) continue;
-          if (overlaps(ea, eb)) {
+          if (overlaps(ea, eb) && isRealConflict(ea, eb)) {
             pairs.push({ kidIdxA: i, kidIdxB: j, eventA: ea, eventB: eb });
           }
         }
@@ -136,6 +149,58 @@ function roleLabel(role: string): string {
     KID: 'Dítě', GUEST: 'Host',
   };
   return map[role] ?? role;
+}
+
+// ─── Lane layout (shared rows across columns) ───────────────────────────────────
+
+type LaneContent =
+  | { kind: 'event'; event: Event }
+  | { kind: 'scheduleGroup'; group: ScheduleGroup };
+
+function buildDayLanes(colEvents: Event[][]): {
+  laneKeys: string[];
+  perColumnLanes: Map<string, LaneContent>[];
+} {
+  const perColumnLanes = colEvents.map((events) => {
+    const map = new Map<string, LaneContent>();
+    const { groups, ungrouped } = groupByScheduleImport(events);
+    for (const g of groups) {
+      map.set(`sched:${g.scheduleImportId}`, { kind: 'scheduleGroup', group: g });
+    }
+    for (const e of ungrouped) {
+      map.set(`ev:${canonicalId(e)}`, { kind: 'event', event: e });
+    }
+    return map;
+  });
+
+  const metaMap = new Map<string, { sortStart: string; title: string }>();
+  for (const map of perColumnLanes) {
+    for (const [key, content] of map) {
+      if (metaMap.has(key)) continue;
+      if (content.kind === 'event') {
+        const e = content.event;
+        metaMap.set(key, {
+          sortStart: e.allDay ? '00:00' : e.start.slice(11, 16),
+          title: e.title,
+        });
+      } else {
+        metaMap.set(key, {
+          sortStart: content.group.startTime,
+          title: `Rozvrh (${content.group.count})`,
+        });
+      }
+    }
+  }
+
+  const laneKeys = [...metaMap.keys()].sort((a, b) => {
+    const ma = metaMap.get(a)!;
+    const mb = metaMap.get(b)!;
+    const cmp = ma.sortStart.localeCompare(mb.sortStart);
+    if (cmp !== 0) return cmp;
+    return ma.title.localeCompare(mb.title, 'cs');
+  });
+
+  return { laneKeys, perColumnLanes };
 }
 
 // ─── Collision tooltip ──────────────────────────────────────────────────────────
@@ -188,68 +253,90 @@ function CollisionTooltip({ reasons }: { reasons: ConflictReason[] }) {
   );
 }
 
-// ─── Day cell ──────────────────────────────────────────────────────────────────
+// ─── Lane cell (one item per shared row) ───────────────────────────────────────
 
-function DayCell({
-  events, conflictReasons, accentColor,
-}: { events: Event[]; conflictReasons: ConflictReason[]; accentColor: string }) {
-  const hasConflict = conflictReasons.length > 0;
+function EventCard({ event, accentColor }: { event: Event; accentColor: string }) {
+  const color = event.eventType?.color ?? accentColor;
+  return (
+    <Link
+      to={occUrl(event as any)}
+      className="block rounded-lg px-2 py-1.5 hover:brightness-95 transition-all"
+      style={{ background: color + '22', borderLeft: `3px solid ${color}` }}
+    >
+      <p className="text-xs font-semibold text-ink leading-tight truncate">
+        {safeIcon(event.eventType?.icon)} {event.title}
+      </p>
+      <p className="text-[10px] text-ink-muted leading-tight mt-0.5">{timeLabel(event)}</p>
+      {event.location && (
+        <p className="text-[10px] text-ink-faint truncate">📍 {event.location}</p>
+      )}
+      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+        {event.transport?.userName && (
+          <span className="text-[9px] text-ink-faint flex items-center gap-0.5">
+            🚗 {event.transport.userName}
+            {event.transport.direction && event.transport.direction !== 'BOTH' && (
+              <span>{event.transport.direction === 'THERE' ? '→' : '←'}</span>
+            )}
+          </span>
+        )}
+        {event.transport?.externalName && (
+          <span className="text-[9px] text-ink-faint">🤝 {event.transport.externalName}</span>
+        )}
+        {event.participants.slice(0, 3).map((p) => (
+          <span key={p.userId} title={p.name}
+            className="w-3.5 h-3.5 rounded-full text-white text-[7px] font-bold flex items-center justify-center"
+            style={{ background: p.role === 'KID' ? '#8b5cf6' : '#0ea5e9' }}>
+            {p.name.slice(0, 1).toUpperCase()}
+          </span>
+        ))}
+        {event.participants.length > 3 && (
+          <span className="text-[9px] text-ink-faint">+{event.participants.length - 3}</span>
+        )}
+      </div>
+    </Link>
+  );
+}
 
-  if (events.length === 0 && !hasConflict) {
+function LaneCell({
+  content,
+  conflictReasons,
+  accentColor,
+  isEmptyDay,
+}: {
+  content?: LaneContent;
+  conflictReasons: ConflictReason[];
+  accentColor: string;
+  isEmptyDay: boolean;
+}) {
+  if (isEmptyDay) {
     return (
       <div className="min-h-[60px] flex items-center justify-center text-ink-faint text-xs">—</div>
     );
   }
-  const { groups, ungrouped } = groupByScheduleImport(events);
+
+  if (!content) {
+    return <div className="min-h-[56px] p-1.5" />;
+  }
+
+  const eventReasons = content.kind === 'event'
+    ? conflictReasons.filter((r) => r.myEvent.id === content.event.id)
+    : [];
+  const hasConflict = eventReasons.length > 0;
 
   return (
-    <div className={`min-h-[60px] p-1.5 space-y-1 ${hasConflict ? 'bg-red-50 dark:bg-red-950/20' : ''}`}>
-      {ungrouped.map((e) => {
-        const color = e.eventType?.color ?? accentColor;
-        return (
-          <Link
-            key={e.id}
-            to={occUrl(e as any)}
-            className="block rounded-lg px-2 py-1.5 hover:brightness-95 transition-all"
-            style={{ background: color + '22', borderLeft: `3px solid ${color}` }}
-          >
-            <p className="text-xs font-semibold text-ink leading-tight truncate">
-              {safeIcon(e.eventType?.icon)} {e.title}
-            </p>
-            <p className="text-[10px] text-ink-muted leading-tight mt-0.5">{timeLabel(e)}</p>
-            {e.location && (
-              <p className="text-[10px] text-ink-faint truncate">📍 {e.location}</p>
-            )}
-            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-              {e.transport?.userName && (
-                <span className="text-[9px] text-ink-faint flex items-center gap-0.5">
-                  🚗 {e.transport.userName}
-                  {e.transport.direction && e.transport.direction !== 'BOTH' && (
-                    <span>{e.transport.direction === 'THERE' ? '→' : '←'}</span>
-                  )}
-                </span>
-              )}
-              {e.transport?.externalName && (
-                <span className="text-[9px] text-ink-faint">🤝 {e.transport.externalName}</span>
-              )}
-              {e.participants.slice(0, 3).map((p) => (
-                <span key={p.userId} title={p.name}
-                  className="w-3.5 h-3.5 rounded-full text-white text-[7px] font-bold flex items-center justify-center"
-                  style={{ background: p.role === 'KID' ? '#8b5cf6' : '#0ea5e9' }}>
-                  {p.name.slice(0, 1).toUpperCase()}
-                </span>
-              ))}
-              {e.participants.length > 3 && (
-                <span className="text-[9px] text-ink-faint">+{e.participants.length - 3}</span>
-              )}
-            </div>
-          </Link>
-        );
-      })}
-      {groups.map((g) => (
-        <ScheduleSummaryChip key={g.scheduleImportId + g.date} group={g as any} color={accentColor} />
-      ))}
-      {hasConflict && <CollisionTooltip reasons={conflictReasons} />}
+    <div className={`min-h-[56px] p-1.5 ${hasConflict ? 'bg-red-50 dark:bg-red-950/20' : ''}`}>
+      {content.kind === 'event' ? (
+        <>
+          <EventCard event={content.event} accentColor={accentColor} />
+          {hasConflict && <CollisionTooltip reasons={eventReasons} />}
+        </>
+      ) : (
+        <ScheduleSummaryChip
+          key={content.group.scheduleImportId + content.group.date}
+          group={content.group as any}
+          color={accentColor}
+        />
+      )}
     </div>
   );
 }
@@ -609,6 +696,13 @@ export default function KidsTimelinePage() {
                     });
                 });
 
+                const { laneKeys, perColumnLanes } = buildDayLanes(colEvents);
+                const isEmptyDay = laneKeys.length === 0;
+                const effectiveLaneKeys = isEmptyDay ? ['__empty__'] : laneKeys;
+                const laneCount = effectiveLaneKeys.length;
+                const rowBg = today ? 'bg-primary/5' : idx % 2 === 0 ? 'bg-surface' : 'bg-surface-raised/40';
+                const dayCellBg = today ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-surface' : 'bg-surface-raised/40';
+
                 return (
                   <React.Fragment key={dayStr}>
                     {mLabel && (
@@ -627,48 +721,54 @@ export default function KidsTimelinePage() {
                       </tr>
                     )}
 
-                    <tr
-                      ref={today ? todayRef : undefined}
-                      className={`border-b border-border transition-colors ${
-                        today ? 'bg-primary/5' : idx % 2 === 0 ? 'bg-surface' : 'bg-surface-raised/40'
-                      }`}
-                    >
-                      {/* Day label — sticky left */}
-                      <td className={`sticky left-0 z-10 px-2 py-1 align-top border-r border-border ${
-                        today ? 'bg-primary/10' : idx % 2 === 0 ? 'bg-surface' : 'bg-surface-raised/40'
-                      }`}>
-                        <div className={`text-[10px] font-bold uppercase tracking-wide ${today ? 'text-primary' : 'text-ink-muted'}`}>
-                          {format(day, 'EEE', { locale: cs })}
-                        </div>
-                        <div className={`text-xl font-black leading-none ${today ? 'text-primary' : 'text-ink'}`}>
-                          {format(day, 'd')}
-                        </div>
-                        {dayHasConflict && (
-                          <AlertTriangle size={11} className="text-red-500 mt-0.5" />
-                        )}
-                      </td>
-
-                      {/* One cell per column */}
-                      {allColumns.map(({ user, isKid }, colIdx) => {
-                        const colEvts = colEvents[colIdx] ?? [];
-                        const reasons = colConflictReasons[colIdx] ?? [];
-                        const accent = isKid
-                          ? ROLE_COLORS['KID']!
-                          : (ROLE_COLORS[user.role] ?? '#94a3b8');
-                        return (
-                          <td key={user.id} className="border-l border-border align-top">
-                            <DayCell
-                              events={colEvts}
-                              conflictReasons={reasons}
-                              accentColor={accent}
-                            />
+                    {effectiveLaneKeys.map((laneKey, laneIdx) => (
+                      <tr
+                        key={`${dayStr}-lane-${laneIdx}`}
+                        ref={today && laneIdx === 0 ? todayRef : undefined}
+                        className={`border-b border-border transition-colors ${rowBg}`}
+                      >
+                        {laneIdx === 0 && (
+                          <td
+                            rowSpan={laneCount}
+                            className={`sticky left-0 z-10 px-2 py-1 align-top border-r border-border ${dayCellBg}`}
+                          >
+                            <div className={`text-[10px] font-bold uppercase tracking-wide ${today ? 'text-primary' : 'text-ink-muted'}`}>
+                              {format(day, 'EEE', { locale: cs })}
+                            </div>
+                            <div className={`text-xl font-black leading-none ${today ? 'text-primary' : 'text-ink'}`}>
+                              {format(day, 'd')}
+                            </div>
+                            {dayHasConflict && (
+                              <AlertTriangle size={11} className="text-red-500 mt-0.5" />
+                            )}
                           </td>
-                        );
-                      })}
+                        )}
 
-                      {/* Empty cell under the "+" column header */}
-                      <td className="border-l border-border/40 w-10" />
-                    </tr>
+                        {allColumns.map(({ user, isKid }, colIdx) => {
+                          const reasons = colConflictReasons[colIdx] ?? [];
+                          const accent = isKid
+                            ? ROLE_COLORS['KID']!
+                            : (ROLE_COLORS[user.role] ?? '#94a3b8');
+                          const content = isEmptyDay
+                            ? undefined
+                            : perColumnLanes[colIdx]?.get(laneKey);
+                          return (
+                            <td key={user.id} className="border-l border-border align-top">
+                              <LaneCell
+                                content={content}
+                                conflictReasons={reasons}
+                                accentColor={accent}
+                                isEmptyDay={isEmptyDay}
+                              />
+                            </td>
+                          );
+                        })}
+
+                        {laneIdx === 0 && (
+                          <td rowSpan={laneCount} className="border-l border-border/40 w-10" />
+                        )}
+                      </tr>
+                    ))}
                   </React.Fragment>
                 );
               })}
@@ -682,10 +782,10 @@ export default function KidsTimelinePage() {
         <div className="px-4 pt-4 pb-2 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
           <span className="flex items-center gap-1">
             <AlertTriangle size={12} className="text-red-500" />
-            Kolize = akce dětí ve stejný čas (klikni pro detail)
+            Kolize = stejná osoba (nebo nikdo) potřebná na dvou akcích ve stejný čas (klikni pro detail)
           </span>
           <span>• Kliknutím na akci zobrazíš detail</span>
-          <span>• Hover na jméno → × pro odebrání sloupce</span>
+          <span>• Klepnutím na × u sloupce ho odeberete</span>
         </div>
       )}
 
