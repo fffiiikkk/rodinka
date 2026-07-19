@@ -186,7 +186,7 @@ export function AvailabilityBars({
 
             {/* Edit / delete — visible on hover for own records */}
             {canManage && startsHere && (
-              <span className="hidden group-hover:flex items-center gap-0.5 ml-1 shrink-0">
+              <span className="flex items-center gap-0.5 ml-1 shrink-0">
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit?.(item); }}

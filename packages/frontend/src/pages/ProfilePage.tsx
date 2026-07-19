@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Camera, Moon, Sun, Monitor, LogOut, Loader2, Bell, BellOff, BellRing, Calendar, RefreshCw, Trash2, Plus, X, ExternalLink } from 'lucide-react';
@@ -184,7 +185,9 @@ export default function ProfilePage() {
           {user.relationship && (
             <p className="text-sm text-primary font-semibold mt-0.5">👨‍👩‍👧 {user.relationship}</p>
           )}
-          <p className="text-sm text-accent font-semibold mt-1">🏅 {earnedCount} odznaků</p>
+          <Link to="/badges" className="text-sm text-accent font-semibold mt-1 inline-flex items-center gap-1 hover:underline">
+            🏅 {earnedCount} odznaků
+          </Link>
           <p className="text-xs text-ink-faint mt-0.5">Klepnutím na fotoaparát nahrajete novou fotku</p>
         </div>
       </div>

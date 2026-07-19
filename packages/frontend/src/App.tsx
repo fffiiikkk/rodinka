@@ -11,6 +11,8 @@ import TopBar from './components/layout/TopBar.js';
 import PushPrompt from './components/ui/PushPrompt.js';
 
 const LoginPage = lazy(() => import('./pages/LoginPage.js'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.js'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.js'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage.js'));
 const CalendarPage = lazy(() => import('./pages/CalendarPage.js'));
 const EventDetailPage = lazy(() => import('./pages/EventDetailPage.js'));
@@ -19,7 +21,6 @@ const AdminPage = lazy(() => import('./pages/AdminPage.js'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage.js'));
 const BadgesPage = lazy(() => import('./pages/BadgesPage.js'));
 const WeeklyOverviewPage = lazy(() => import('./pages/WeeklyOverviewPage.js'));
-const SchedulePage = lazy(() => import('./pages/SchedulePage.js'));
 const KidsTimelinePage = lazy(() => import('./pages/KidsTimelinePage.js'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.js'));
 
@@ -63,7 +64,6 @@ function AnimatedRoutes() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/badges" element={<BadgesPage />} />
           <Route path="/week" element={<WeeklyOverviewPage />} />
-          <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/kids-timeline" element={<KidsTimelinePage />} />
           <Route
             path="/admin/*"
@@ -73,14 +73,7 @@ function AnimatedRoutes() {
               </AdminGuard>
             }
           />
-          <Route
-            path="/reports/*"
-            element={
-              <AdminGuard>
-                <ReportsPage />
-              </AdminGuard>
-            }
-          />
+          <Route path="/reports" element={<Navigate to="/admin/reports" replace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </Suspense>
@@ -119,6 +112,8 @@ export default function App() {
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           <Route
             path="/*"

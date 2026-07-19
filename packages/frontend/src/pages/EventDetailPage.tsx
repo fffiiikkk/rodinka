@@ -12,6 +12,8 @@ import EventForm from '../components/events/EventForm.js';
 import DatePicker from '../components/ui/DatePicker.js';
 import LocationMap from '../components/ui/LocationMap.js';
 import { format } from 'date-fns';
+import { cs } from 'date-fns/locale';
+import { formatTransportLabel } from '../lib/transportLabel.js';
 
 function CoordinatesRow({ lat, lng }: { lat: number; lng: number }) {
   const { toast } = useToast();
@@ -165,6 +167,7 @@ export default function EventDetailPage() {
   const createEvent = useCreateEvent();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDeleteOcc, setConfirmDeleteOcc] = useState(false);
   // 'choose' shows the series-vs-occurrence dialog; 'occurrence'/'series' go straight to action
   const [editDialog, setEditDialog] = useState<'choose' | 'occurrence' | 'series' | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<'choose' | null>(null);
@@ -276,7 +279,11 @@ export default function EventDetailPage() {
         <div className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/8 border border-primary/20">
           <RefreshCw size={13} className="text-primary shrink-0" />
           <p className="text-xs text-primary font-medium">
-            Zobrazujete instanci <strong>{occurrenceDate}</strong> z opakující se série.
+            Zobrazujete instanci{' '}
+            <strong>
+              {format(new Date(occurrenceDate + 'T12:00:00'), 'd. MMMM yyyy', { locale: cs })}
+            </strong>{' '}
+            z opakující se série.
           </p>
         </div>
       )}
@@ -365,16 +372,10 @@ export default function EventDetailPage() {
             <Car size={15} className="text-primary shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wide">Doprava</p>
-              {event.transport.externalName ? (
-                <p className="text-sm font-semibold text-ink">🤝 {event.transport.externalName}</p>
-              ) : event.transport.userName && event.transport.userRole === 'KID' ? (
-                <p className="text-sm font-semibold text-ink">
-                  🚶 {event.transport.userName} <span className="text-ink-muted font-normal text-xs">samo</span>
-                </p>
-              ) : event.transport.userName ? (
-                <p className="text-sm font-semibold text-ink">🚗 {event.transport.userName}</p>
-              ) : null}
-              {event.transport.note && (
+              <p className="text-sm font-semibold text-ink">
+                {formatTransportLabel(event.transport)}
+              </p>
+              {event.transport.note && !formatTransportLabel(event.transport)?.includes(event.transport.note) && (
                 <p className="text-xs text-ink-muted">{event.transport.note}</p>
               )}
               {/* Direction badge */}
@@ -503,7 +504,37 @@ export default function EventDetailPage() {
 
           {/* Cancel */}
           {event.status === 'APPROVED' && !event.isHoliday && (
-            !confirmDelete ? (
+            confirmDeleteOcc ? (
+              <div className="rounded-xl border border-danger/30 bg-danger/5 p-3 space-y-2">
+                <p className="text-sm font-medium text-center text-ink">
+                  Opravdu zrušit instanci{' '}
+                  {occurrenceDate
+                    ? format(new Date(occurrenceDate + 'T12:00:00'), 'd. MMMM yyyy', { locale: cs })
+                    : ''}
+                  ?
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={() => setConfirmDeleteOcc(false)} className="btn-secondary flex-1 py-2 text-sm">Ne</button>
+                  <button
+                    disabled={cancelOcc.isPending}
+                    onClick={() => {
+                      if (!occurrenceDate) return;
+                      cancelOcc.mutate(
+                        { parentId: event.id, date: occurrenceDate },
+                        {
+                          onSuccess: () => { toast('Instance zrušena', 'info'); navigate(-1); },
+                          onError: () => toast('Chyba při rušení', 'error'),
+                        },
+                      );
+                    }}
+                    className="flex-1 bg-danger text-white text-sm font-semibold py-2 rounded-xl disabled:opacity-60 flex items-center justify-center gap-1.5"
+                  >
+                    {cancelOcc.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+                    Ano, zrušit instanci
+                  </button>
+                </div>
+              </div>
+            ) : !confirmDelete ? (
               <button
                 onClick={() => {
                   if (isRecurringSeries && occurrenceDate) setDeleteDialog('choose');
@@ -573,13 +604,7 @@ export default function EventDetailPage() {
           action="delete"
           onOccurrence={() => {
             setDeleteDialog(null);
-            cancelOcc.mutate(
-              { parentId: event.id, date: occurrenceDate! },
-              {
-                onSuccess: () => { toast('Instance zrušena', 'info'); navigate(-1); },
-                onError: () => toast('Chyba při rušení', 'error'),
-              },
-            );
+            setConfirmDeleteOcc(true);
           }}
           onSeries={() => {
             setDeleteDialog(null);

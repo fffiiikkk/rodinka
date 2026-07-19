@@ -4,8 +4,8 @@
  * Kids  → colourful day cards, big emoji, motivational phrases, fun design
  * Adults → structured daily grid with events, availability coverage & transport
  */
-import React, { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useMemo, useEffect, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { format, addDays, startOfDay, isSameDay, isToday, isTomorrow } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import { Car, UserX, CalendarCheck, UserCheck, ChevronRight, Star } from 'lucide-react';
@@ -273,8 +273,10 @@ function GuardianDaySection({
   const txtCls = DAY_TEXT[day.getDay() === 0 ? 6 : day.getDay() - 1];
   const isEmpty = events.length === 0 && calEvents.length === 0;
 
+  const dayId = format(day, 'yyyy-MM-dd');
+
   return (
-    <div className={`rounded-2xl border overflow-hidden ${bgCls}`}>
+    <div id={`week-day-${dayId}`} className={`rounded-2xl border overflow-hidden ${bgCls}`}>
       {/* Day header */}
       <div className="px-4 py-2.5 flex items-center justify-between">
         <div>
@@ -430,6 +432,8 @@ function GuardianWeeklyOverview({
 
 export default function WeeklyOverviewPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const scrolledRef = useRef(false);
   const isKid     = user?.role === 'KID';
   const isParent  = user?.role === 'PARENT';
 
@@ -439,6 +443,16 @@ export default function WeeklyOverviewPage() {
   const { data: events    = [] } = useEvents(today, weekEnd);
   const { data: avail     = [] } = useAvailability(today, weekEnd);
   const { data: calLayer  = [] } = useCalendarLayer(today, weekEnd);
+
+  useEffect(() => {
+    const day = searchParams.get('day');
+    if (!day || scrolledRef.current) return;
+    const el = document.getElementById(`week-day-${day}`);
+    if (el) {
+      scrolledRef.current = true;
+      requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+  }, [searchParams]);
 
   if (isKid) {
     return <KidWeeklyOverview events={events} calLayer={calLayer} />;

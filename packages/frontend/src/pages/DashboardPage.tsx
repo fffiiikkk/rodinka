@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,7 +11,8 @@ import { api } from '../lib/api.js';
 import { addDays, formatRelativeDate, formatDate, formatTime, parseISO, isToday, format } from '../lib/dates.js';
 import Avatar from '../components/ui/Avatar.js';
 import FridgeBoard from '../components/dashboard/FridgeBoard.js';
-import { AlertTriangle, CheckCircle2, Clock, CalendarRange, ChevronRight } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, CalendarRange, ChevronRight, Loader2 } from 'lucide-react';
+import { useToast } from '../components/ui/Toast.js';
 
 function MotdBanner() {
   const { t } = useTranslation();
@@ -167,14 +168,16 @@ function WeekEmojiStrip({ events }: { events: any[] }) {
         {days.map((day, idx) => {
           const dayEvts = events.filter((e) => isSameDay(parseISO(e.start), day));
           const isCurrentDay = idx === 0;
+          const dayStr = format(day, 'yyyy-MM-dd');
 
           return (
-            <div
+            <Link
               key={idx}
-              className={`flex-shrink-0 snap-start flex flex-col items-center min-w-[3.2rem] w-[3.2rem] rounded-xl py-2 px-1 transition-colors ${
+              to={`/week?day=${dayStr}`}
+              className={`flex-shrink-0 snap-start flex flex-col items-center min-w-[3.2rem] w-[3.2rem] rounded-xl py-2 px-1 transition-colors active:scale-95 ${
                 isCurrentDay
                   ? 'bg-primary/15 ring-1 ring-primary/30'
-                  : 'bg-surface-raised'
+                  : 'bg-surface-raised hover:bg-surface-overlay'
               }`}
             >
               <span className={`text-[11px] font-black leading-none ${isCurrentDay ? 'text-primary' : 'text-ink-muted'}`}>
@@ -200,12 +203,18 @@ function WeekEmojiStrip({ events }: { events: any[] }) {
                       </Link>
                     ))}
                     {dayEvts.length > 2 && (
-                      <span className="text-[10px] font-bold text-ink-muted">+{dayEvts.length - 2}</span>
+                      <Link
+                        to={`/week?day=${dayStr}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[10px] font-bold text-primary hover:underline"
+                      >
+                        +{dayEvts.length - 2}
+                      </Link>
                     )}
                   </>
                 )}
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
@@ -220,7 +229,25 @@ function WeekEmojiStrip({ events }: { events: any[] }) {
 function GrandparentDashboard() {
   const from = new Date();
   const to = addDays(new Date(), 7);
-  const { data: events = [] } = useEvents(from, to);
+  const { data: events = [], isLoading, isError } = useEvents(from, to);
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pb-4 space-y-3 pt-4">
+        <div className="skeleton h-24 rounded-xl" />
+        <div className="skeleton h-32 rounded-xl" />
+        <div className="skeleton h-20 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="px-4 py-8 text-center text-ink-muted text-sm">
+        Nepodařilo se načíst přehled. Zkuste obnovit stránku.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pb-4">
@@ -280,9 +307,19 @@ function ParentDashboard() {
                 <h3 className="font-bold text-ink flex-1">{t('dashboard.coverageWarnings')}</h3>
                 <span className="bg-danger text-white text-xs font-black px-2 py-0.5 rounded-full">{gaps?.length}</span>
               </div>
-              {gaps?.slice(0, 3).map((gap: any) => (
-                <p key={gap.date} className="text-sm text-ink-muted py-0.5">{formatDate(gap.date)} — {gap.events[0]?.title}</p>
-              ))}
+              {gaps?.slice(0, 3).map((gap: any) => {
+                const event = gap.events[0];
+                if (!event) return null;
+                return (
+                  <Link
+                    key={gap.date}
+                    to={`/event/${event.id}`}
+                    className="block text-sm text-ink-muted py-1.5 hover:text-primary active:bg-surface-raised rounded-lg px-1 -mx-1 transition-colors"
+                  >
+                    {formatDate(gap.date)} — {event.title}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         ) : (
@@ -337,8 +374,11 @@ function ParentDashboard() {
 
         {/* Badge progress */}
         {(progress?.length ?? 0) > 0 && (
-          <div className="card p-4">
-            <h3 className="font-bold text-ink mb-3">🏅 {t('dashboard.myBadges')}</h3>
+          <Link to="/badges" className="card p-4 block hover:bg-surface-raised active:scale-[.99] transition-all">
+            <h3 className="font-bold text-ink mb-3 flex items-center gap-2">
+              🏅 {t('dashboard.myBadges')}
+              <ChevronRight size={16} className="ml-auto text-ink-faint" />
+            </h3>
             {progress?.slice(0, 3).map((p: any) => (
               <div key={p.badge.id} className="mb-3 last:mb-0">
                 <div className="flex items-center gap-2 mb-1.5">
@@ -354,7 +394,7 @@ function ParentDashboard() {
                 </div>
               </div>
             ))}
-          </div>
+          </Link>
         )}
       </div>
     </div>
@@ -365,7 +405,16 @@ function KidDashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const from = new Date(); const to = addDays(new Date(), 7);
-  const { data: events } = useEvents(from, to, { userId: user?.id });
+  const { data: events, isLoading } = useEvents(from, to, { userId: user?.id });
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pb-4 space-y-3 pt-4">
+        <div className="skeleton h-24 rounded-xl" />
+        <div className="skeleton h-40 rounded-xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pb-4">
@@ -397,12 +446,12 @@ function KidDashboard() {
           🗓️ Můj týden
         </Link>
 
-        <a
-          href="/calendar?propose=1"
-          className="btn-primary w-full py-3.5 text-base rounded-2xl"
+        <Link
+          to="/calendar?propose=1"
+          className="btn-primary w-full py-3.5 text-base rounded-2xl flex items-center justify-center"
         >
           ✋ {t('calendar.proposeEvent')}
-        </a>
+        </Link>
       </div>
     </div>
   );
@@ -411,7 +460,25 @@ function KidDashboard() {
 function GuardianDashboard() {
   const { t } = useTranslation();
   const from = new Date(); const to = addDays(new Date(), 14);
-  const { data: events } = useEvents(from, to);
+  const { data: events, isLoading, isError } = useEvents(from, to);
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pb-4 space-y-3 pt-4">
+        <div className="skeleton h-8 rounded-xl w-2/3" />
+        <div className="skeleton h-32 rounded-xl" />
+        <div className="skeleton h-24 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="px-4 py-8 text-center text-ink-muted text-sm">
+        Nepodařilo se načíst přehled. Zkuste obnovit stránku.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pb-4">
@@ -448,28 +515,65 @@ function EventRow({ event, large = false }: { event: any; large?: boolean }) {
         <p className={`font-semibold truncate text-ink ${large ? 'text-base' : 'text-sm'}`}>{event.title}</p>
         <p className="text-xs text-ink-muted">{formatRelativeDate(event.start)}{event.location ? ` · ${event.location}` : ''}</p>
       </div>
-      <ChevronRight size={14} className="text-ink-faint shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <ChevronRight size={14} className="text-ink-faint shrink-0" />
     </Link>
   );
 }
 
 function ApproveButton({ eventId }: { eventId: string }) {
   const qc = useQueryClient();
+  const { success, error } = useToast();
+  const [pending, setPending] = useState(false);
+
   return (
     <button
-      onClick={() => api.post(`/events/${eventId}/approve`).then(() => qc.invalidateQueries({ queryKey: ['events'] }))}
-      className="text-xs bg-success/10 text-success font-semibold px-2 py-1 rounded"
-    >✓</button>
+      disabled={pending}
+      onClick={async () => {
+        setPending(true);
+        try {
+          await api.post(`/events/${eventId}/approve`);
+          await qc.invalidateQueries({ queryKey: ['events'] });
+          success('Návrh schválen');
+        } catch {
+          error('Schválení se nepodařilo');
+        } finally {
+          setPending(false);
+        }
+      }}
+      className="text-xs bg-success/10 text-success font-semibold px-2.5 py-1.5 rounded min-w-[2rem] flex items-center justify-center disabled:opacity-50"
+      title="Schválit"
+    >
+      {pending ? <Loader2 size={12} className="animate-spin" /> : '✓'}
+    </button>
   );
 }
 
 function RejectButton({ eventId }: { eventId: string }) {
   const qc = useQueryClient();
+  const { success, error } = useToast();
+  const [pending, setPending] = useState(false);
+
   return (
     <button
-      onClick={() => api.post(`/events/${eventId}/reject`).then(() => qc.invalidateQueries({ queryKey: ['events'] }))}
-      className="text-xs bg-danger/10 text-danger font-semibold px-2 py-1 rounded"
-    >✗</button>
+      disabled={pending}
+      onClick={async () => {
+        if (!window.confirm('Opravdu zamítnout tento návrh?')) return;
+        setPending(true);
+        try {
+          await api.post(`/events/${eventId}/reject`);
+          await qc.invalidateQueries({ queryKey: ['events'] });
+          success('Návrh zamítnut');
+        } catch {
+          error('Zamítnutí se nepodařilo');
+        } finally {
+          setPending(false);
+        }
+      }}
+      className="text-xs bg-danger/10 text-danger font-semibold px-2.5 py-1.5 rounded min-w-[2rem] flex items-center justify-center disabled:opacity-50"
+      title="Zamítnout"
+    >
+      {pending ? <Loader2 size={12} className="animate-spin" /> : '✗'}
+    </button>
   );
 }
 

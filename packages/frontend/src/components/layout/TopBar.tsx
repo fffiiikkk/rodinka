@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Bell, UserX } from 'lucide-react';
+import { Trophy, UserX } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useUnseenBadges } from '../../hooks/useBadges.js';
 import { useQueryClient } from '@tanstack/react-query';
@@ -57,13 +57,13 @@ export default function TopBar() {
 
           {/* Actions */}
           <div className="flex items-center gap-1">
-            {/* Badge bell */}
+            {/* Badges */}
             <Link
               to="/badges"
               className="relative w-10 h-10 flex items-center justify-center rounded-xl text-ink-muted hover:text-primary hover:bg-primary/8 active:bg-primary/12 transition-all"
               title="Odznaky"
             >
-              <Bell size={20} strokeWidth={1.8} />
+              <Trophy size={20} strokeWidth={1.8} />
               {unseenCount > 0 && (
                 <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-gradient-to-br from-red-500 to-rose-600 text-white text-[9px] rounded-full flex items-center justify-center font-black shadow-sm ring-1 ring-white dark:ring-surface">
                   {unseenCount > 9 ? '9+' : unseenCount}

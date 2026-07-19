@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
@@ -130,9 +130,9 @@ function LoginForm() {
           </form>
 
           <div className="mt-4 text-center">
-            <a href="/forgot-password" className="text-sm text-primary hover:underline">
+            <Link to="/forgot-password" className="text-sm text-primary hover:underline">
               {t('auth.forgotPassword')}
-            </a>
+            </Link>
           </div>
         </div>
 

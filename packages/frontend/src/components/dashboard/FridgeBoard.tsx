@@ -212,7 +212,7 @@ function RepliesThread({ note }: { note: FridgeNote }) {
                 <button
                   type="button"
                   onClick={() => deleteReply.mutate(r.id)}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-100 text-red-400 transition-all"
+                  className="p-0.5 rounded hover:bg-red-100 text-red-400 transition-all shrink-0"
                   title="Smazat"
                 >
                   <X size={11} />

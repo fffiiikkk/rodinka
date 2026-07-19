@@ -143,7 +143,7 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
   ];
 
   const applyDuration = (minutes: number) => {
-    const base = new Date(`${startDate}T${startTime}`);
+    const base = new Date(`${endDate}T${endTime}`);
     const newEnd = addMinutes(base, minutes);
     setEndDate(format(newEnd, 'yyyy-MM-dd'));
     setEndTime(format(newEnd, 'HH:mm'));
@@ -341,6 +341,16 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
     : null;
 
   const participantCount = participantIds.length;
+  const participantSummary = React.useMemo(() => {
+    if (!usersData || participantCount === 0) return '';
+    if (participantCount === 1 && user && participantIds[0] === user.id) return 'Jen já';
+    const names = participantIds
+      .map((id) => usersData.find((u: any) => u.id === id))
+      .filter(Boolean)
+      .map((u: any) => u.nickname ?? u.name.split(' ')[0]);
+    if (names.length <= 2) return names.join(', ');
+    return `${participantCount} účastníků`;
+  }, [usersData, participantIds, participantCount, user]);
   const transportActive = transportMode !== 'none';
 
   return (
@@ -480,6 +490,11 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
             Přidat výskyt
           </button>
         )}
+        {!isEdit && (
+          <p className="text-[10px] text-ink-faint leading-snug px-1">
+            Výskyt = stejná akce v jiný den. Opakování níže = automatické opakování (týdně, měsíčně…).
+          </p>
+        )}
       </div>
 
       {/* Recurrence — hide for kids */}
@@ -607,7 +622,12 @@ export default function EventForm({ onClose, defaultDate = new Date(), initialVa
             {showParticipants ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             <Users size={13} />
             <span>Účastníci</span>
-            {participantCount > 0 && (
+            {participantSummary && !showParticipants && (
+              <span className="ml-1 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full truncate max-w-[8rem]">
+                {participantSummary}
+              </span>
+            )}
+            {showParticipants && participantCount > 0 && (
               <span className="ml-1 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
                 {participantCount}
               </span>

@@ -265,9 +265,9 @@ function ColHeader({
       {onRemove && (
         <button
           onClick={onRemove}
-          className="absolute top-1 right-1 w-4 h-4 rounded-full bg-surface-raised border border-border
+          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-surface-raised border border-border
                      text-ink-faint hover:text-red-500 hover:border-red-300 transition-all
-                     opacity-0 group-hover:opacity-100 flex items-center justify-center"
+                     flex items-center justify-center"
           title="Odebrat sloupec"
         >
           <X size={9} />

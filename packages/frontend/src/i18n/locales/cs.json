@@ -16,7 +16,7 @@
   "auth": {
     "login": "Přihlásit se",
     "logout": "Odhlásit se",
-    "username": "Přezdívka",
+    "username": "Uživatelské jméno",
     "password": "Heslo",
     "forgotPassword": "Zapomenuté heslo?",
     "resetPassword": "Resetovat heslo",
@@ -40,7 +40,15 @@
     "deleteEvent": "Smazat událost",
     "cancelEvent": "Zrušit událost",
     "proposeEvent": "Navrhnout akci",
-    "holiday": "Státní svátek"
+    "holiday": "Státní svátek",
+    "filterTitle": "Filtr kalendáře",
+    "clearFilters": "Zrušit všechny filtry",
+    "filterActive": "Filtr aktivní",
+    "fabExternal": "Výpomoc",
+    "fabAvailability": "Dostupnost",
+    "fabUnavailability": "Nedostupnost",
+    "deleteAvailabilityConfirm": "Smazat záznam pro {{name}}?",
+    "monthOverflow": "+{{count}} dalších"
   },
   "event": {
     "title": "Název",
@@ -147,7 +155,8 @@
     "eventTypes": "Typy událostí",
     "flags": "Funkce (přepínače)",
     "motd": "Zpráva dne",
-    "auditLog": "Záznam změn"
+    "namedays": "Jmeniny",
+    "scheduleImport": "Rozvrh"
   },
   "profile": {
     "title": "Profil",
@@ -195,8 +204,15 @@
     "back": "Zpět",
     "next": "Další",
     "previous": "Předchozí",
+    "error": "Něco se pokazilo",
     "show": "Zobrazit",
     "hide": "Skrýt"
+  },
+  "timePicker": {
+    "precise": "🕐 Přesný čas",
+    "quick": "⚡ Rychlé",
+    "hours": "hod",
+    "minutes": "min"
   },
   "roles": {
     "PARENT": "Rodič",

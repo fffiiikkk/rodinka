@@ -40,7 +40,15 @@
     "deleteEvent": "Delete event",
     "cancelEvent": "Cancel event",
     "proposeEvent": "Propose event",
-    "holiday": "Public holiday"
+    "holiday": "Public holiday",
+    "filterTitle": "Calendar filter",
+    "clearFilters": "Clear all filters",
+    "filterActive": "Filter active",
+    "fabExternal": "Helper",
+    "fabAvailability": "Availability",
+    "fabUnavailability": "Unavailability",
+    "deleteAvailabilityConfirm": "Delete record for {{name}}?",
+    "monthOverflow": "+{{count}} more"
   },
   "event": {
     "title": "Title",
@@ -147,7 +155,8 @@
     "eventTypes": "Event types",
     "flags": "Features (toggles)",
     "motd": "Message of the day",
-    "auditLog": "Audit log"
+    "namedays": "Name days",
+    "scheduleImport": "Schedule"
   },
   "profile": {
     "title": "Profile",
@@ -195,8 +204,15 @@
     "back": "Back",
     "next": "Next",
     "previous": "Previous",
+    "error": "Something went wrong",
     "show": "Show",
     "hide": "Hide"
+  },
+  "timePicker": {
+    "precise": "🕐 Exact time",
+    "quick": "⚡ Quick",
+    "hours": "hr",
+    "minutes": "min"
   },
   "roles": {
     "PARENT": "Parent",

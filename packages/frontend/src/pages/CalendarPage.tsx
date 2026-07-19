@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Plus, UserX, UserCheck, CalendarCheck, SlidersHorizontal, X, RotateCcw } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents.js';
@@ -17,6 +18,7 @@ import { useCalendarLayer, type CalendarLayerEvent } from '../hooks/useCalendarL
 import ScheduleSummaryChip from '../components/calendar/ScheduleSummaryChip.js';
 import { groupByScheduleImport } from '../lib/scheduleGroups.js';
 import type { Event, Availability } from '@rodinkal/shared';
+import { formatTransportLabel } from '../lib/transportLabel.js';
 
 // ─── Shared layout constants ──────────────────────────────────────────────────
 
@@ -130,10 +132,15 @@ function TgEventBlock({ event }: { event: Event & { originalId?: string; isOccur
 // All-day row at the top of the week grid (allDay events + availability)
 function TgAllDaySection({
   events, availability, weekDays,
+  currentUserId, isAdmin, onEditAvail, onDeleteAvail,
 }: {
   events: Event[];
   availability: Availability[];
   weekDays: Date[];
+  currentUserId?: string;
+  isAdmin?: boolean;
+  onEditAvail?: (item: Availability) => void;
+  onDeleteAvail?: (item: Availability) => void;
 }) {
   const multiDay = events.filter(isMultiDayEvent);
   const singleAllDay = events.filter((e) => e.allDay && !isMultiDayEvent(e));
@@ -165,6 +172,10 @@ function TgAllDaySection({
             <AvailabilityBars
               items={weekAvail}
               weekDays={weekDayStrs}
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
+              onEdit={onEditAvail}
+              onDelete={onDeleteAvail}
             />
           </div>
         </div>
@@ -232,7 +243,18 @@ function TgAllDaySection({
   );
 }
 
-function WeekTimeGrid({ events, weekStart, availability }: { events: Event[]; weekStart: Date; availability: Availability[] }) {
+function WeekTimeGrid({
+  events, weekStart, availability,
+  currentUserId, isAdmin, onEditAvail, onDeleteAvail,
+}: {
+  events: Event[];
+  weekStart: Date;
+  availability: Availability[];
+  currentUserId?: string;
+  isAdmin?: boolean;
+  onEditAvail?: (item: Availability) => void;
+  onDeleteAvail?: (item: Availability) => void;
+}) {
   const days = eachDayOfInterval({ start: weekStart, end: endOfWeek(weekStart, { weekStartsOn: 1 }) });
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -265,7 +287,15 @@ function WeekTimeGrid({ events, weekStart, availability }: { events: Event[]; we
       </div>
 
       {/* All-day / availability section */}
-      <TgAllDaySection events={events} availability={availability} weekDays={days} />
+      <TgAllDaySection
+        events={events}
+        availability={availability}
+        weekDays={days}
+        currentUserId={currentUserId}
+        isAdmin={isAdmin}
+        onEditAvail={onEditAvail}
+        onDeleteAvail={onDeleteAvail}
+      />
 
       {/* Scrollable time grid */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain">
@@ -322,6 +352,7 @@ function FilterSheet({
   users: FilterUser[];
   eventTypes: FilterEventType[];
 }) {
+  const { t } = useTranslation();
   const toggleUser = (id: string) =>
     setFilter({
       ...filter,
@@ -341,7 +372,7 @@ function FilterSheet({
   const isActive = filter.userIds.length > 0 || filter.eventTypeIds.length > 0;
 
   return (
-    <Sheet open={open} onClose={onClose} title="Filtr kalendáře">
+    <Sheet open={open} onClose={onClose} title={t('calendar.filterTitle')}>
       <div className="p-4 space-y-5">
         {/* Reset */}
         {isActive && (
@@ -350,7 +381,7 @@ function FilterSheet({
             className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-border text-sm font-semibold text-ink-muted hover:text-ink hover:bg-surface-raised transition-colors"
           >
             <RotateCcw size={14} />
-            Zrušit všechny filtry
+            {t('calendar.clearFilters')}
           </button>
         )}
 
@@ -500,9 +531,7 @@ function AgendaView({
     });
   }
 
-  return (
-    <div className="space-y-1 px-4">
-      {days.map((day) => {
+  const dayBlocks = days.map((day) => {
         const dayStr = format(day, 'yyyy-MM-dd');
 
         // Events starting on this day
@@ -611,9 +640,18 @@ function AgendaView({
             )}
           </div>
         );
-      })}
-    </div>
-  );
+      });
+
+  if (dayBlocks.every((b) => b === null)) {
+    return (
+      <div className="px-4 py-16 text-center">
+        <div className="text-4xl mb-3">📭</div>
+        <p className="text-ink-muted font-medium">{t('calendar.noEvents')}</p>
+      </div>
+    );
+  }
+
+  return <div className="space-y-1 px-4">{dayBlocks}</div>;
 }
 
 /** Render a day's events, collapsing schedule groups into ScheduleSummaryChip */
@@ -642,14 +680,7 @@ function safeIcon(icon: string | undefined | null, fallback = '📌'): string {
 }
 
 function transportLabel(t: Event['transport']): string | null {
-  if (!t) return null;
-  if (t.externalName) return `🤝 ${t.externalName}`;
-  if (t.userName) {
-    if (t.userRole === 'KID') return t.note ? `🚶 ${t.note}` : '🚶 samo';
-    return `🚗 ${t.userName}`;
-  }
-  if (t.note) return `🚶 ${t.note}`;
-  return null;
+  return formatTransportLabel(t);
 }
 
 function ParticipantAvatars({ participants }: { participants: Event['participants'] }) {
@@ -766,7 +797,7 @@ function layoutSpanningForWeek(multiDayEvents: Event[], weekDays: Date[]): Spann
   });
 }
 
-function MonthGrid({ events, availability, layer, currentDate, currentUserId, isAdmin, onEditAvail, onDeleteAvail }: {
+function MonthGrid({ events, availability, layer, currentDate, currentUserId, isAdmin, onEditAvail, onDeleteAvail, onShowDayAgenda }: {
   events: Event[];
   availability: Availability[];
   layer: CalendarLayerEvent[];
@@ -775,7 +806,9 @@ function MonthGrid({ events, availability, layer, currentDate, currentUserId, is
   isAdmin?: boolean;
   onEditAvail?: (item: Availability) => void;
   onDeleteAvail?: (item: Availability) => void;
+  onShowDayAgenda?: (day: Date) => void;
 }) {
+  const { t } = useTranslation();
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -840,9 +873,9 @@ function MonthGrid({ events, availability, layer, currentDate, currentUserId, is
                 {weekDays.map((day) => {
                   const dayStr = format(day, 'yyyy-MM-dd');
                   const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-                  const dayEvents = singleDayEvents
-                    .filter((e) => String(e.start).slice(0, 10) === dayStr)
-                    .slice(0, 2);
+                  const allDayEvents = singleDayEvents.filter((e) => String(e.start).slice(0, 10) === dayStr);
+                  const dayEvents = allDayEvents.slice(0, 2);
+                  const overflow = allDayEvents.length - dayEvents.length;
 
                   const dayAvailItems = availability.filter(
                     (a) => a.dateFrom.slice(0, 10) <= dayStr && a.dateTo.slice(0, 10) >= dayStr,
@@ -902,6 +935,15 @@ function MonthGrid({ events, availability, layer, currentDate, currentUserId, is
                             </a>
                           );
                         })}
+                        {overflow > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => onShowDayAgenda?.(day)}
+                            className="block w-full text-[10px] px-1 py-0.5 rounded font-bold text-primary hover:bg-primary/10 transition-colors text-left"
+                          >
+                            {t('calendar.monthOverflow', { count: overflow })}
+                          </button>
+                        )}
                       </div>
                       <BirthdayDots items={layer.filter((l) => l.date === dayStr)} />
                       <AvailabilityDots items={dayAvailItems} />
@@ -975,6 +1017,7 @@ function MonthGrid({ events, availability, layer, currentDate, currentUserId, is
 
 export default function CalendarPage() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<CalendarView>('agenda');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
@@ -982,11 +1025,33 @@ export default function CalendarPage() {
   const [showAvail, setShowAvail] = useState(false);
   const [showExternal, setShowExternal] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
   const [editAvailItem, setEditAvailItem] = useState<Availability | null>(null);
   const [filter, setFilterState] = useState<CalendarFilter>(loadFilter);
   const { user } = useAuth();
   const deleteAvailability = useDeleteAvailability();
   const { data: adultUsers = [] } = useAdultUsers();
+
+  useEffect(() => {
+    if (searchParams.get('propose') === '1') {
+      setShowForm(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('propose');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const handleDeleteAvail = (item: Availability) => {
+    const name = item.isExternal ? item.externalName : item.userName;
+    if (window.confirm(t('calendar.deleteAvailabilityConfirm', { name }))) {
+      deleteAvailability.mutate(item.id);
+    }
+  };
+
+  const showDayAgenda = (day: Date) => {
+    setCurrentDate(day);
+    setView('agenda');
+  };
 
   const setFilter = (f: CalendarFilter) => {
     setFilterState(f);
@@ -1119,13 +1184,13 @@ export default function CalendarPage() {
         <div className="mx-4 mt-2 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary font-semibold">
           <SlidersHorizontal size={12} />
           <span className="flex-1">
-            Filtr aktivní
+            {t('calendar.filterActive')}
             {filter.userIds.length > 0 && ` · ${filter.userIds.length} ${filter.userIds.length === 1 ? 'osoba' : filter.userIds.length < 5 ? 'osoby' : 'osob'}`}
             {filter.eventTypeIds.length > 0 && ` · ${filter.eventTypeIds.length} ${filter.eventTypeIds.length === 1 ? 'typ' : 'typy'}`}
           </span>
           <button onClick={() => setFilter(EMPTY_FILTER)} className="flex items-center gap-0.5 hover:opacity-70 transition-opacity">
             <RotateCcw size={11} />
-            reset
+            {t('calendar.clearFilters')}
           </button>
         </div>
       )}
@@ -1145,12 +1210,19 @@ export default function CalendarPage() {
             currentUserId={user?.id}
             isAdmin={user?.role === 'PARENT'}
             onEditAvail={setEditAvailItem}
-            onDeleteAvail={(item) => {
-              if (confirm('Smazat tento záznam?')) deleteAvailability.mutate(item.id);
-            }}
+            onDeleteAvail={handleDeleteAvail}
+            onShowDayAgenda={showDayAgenda}
           />
         ) : view === 'week' ? (
-          <WeekTimeGrid events={filteredEvents} weekStart={queryFrom} availability={availability} />
+          <WeekTimeGrid
+            events={filteredEvents}
+            weekStart={queryFrom}
+            availability={availability}
+            currentUserId={user?.id}
+            isAdmin={user?.role === 'PARENT'}
+            onEditAvail={setEditAvailItem}
+            onDeleteAvail={handleDeleteAvail}
+          />
         ) : (
           <AgendaView
             events={filteredEvents}
@@ -1159,52 +1231,73 @@ export default function CalendarPage() {
             from={queryFrom}
             to={queryTo}
             onEditAvail={(item) => setEditAvailItem(item)}
-            onDeleteAvail={(item) => {
-              if (window.confirm(`Smazat záznam pro ${item.isExternal ? item.externalName : item.userName}?`)) {
-                deleteAvailability.mutate(item.id);
-              }
-            }}
+            onDeleteAvail={handleDeleteAvail}
           />
         )}
       </div>
 
-      {/* FABs — speed-dial cluster */}
-      <div className="fixed bottom-24 right-4 flex flex-col items-end gap-2 z-20">
-        {/* External helper — admin only */}
-        {user?.role === 'PARENT' && (
-          <button onClick={() => setShowExternal(true)}
-            className="flex items-center gap-2 pl-3 pr-4 h-10 bg-blue-500 text-white rounded-full shadow-raised hover:bg-blue-600 active:scale-95 transition-all"
-          >
-            <UserCheck size={16} />
-            <span className="text-xs font-bold whitespace-nowrap">Výpomoc</span>
-          </button>
-        )}
-        {/* Mark as available — all guardians */}
-        {isGuardian && (
-          <button onClick={() => setShowAvail(true)}
-            className="flex items-center gap-2 pl-3 pr-4 h-10 bg-emerald-500 text-white rounded-full shadow-raised hover:bg-emerald-600 active:scale-95 transition-all"
-          >
-            <CalendarCheck size={16} />
-            <span className="text-xs font-bold whitespace-nowrap">Dostupnost</span>
-          </button>
-        )}
-        {/* Own unavailability — all guardians */}
-        {isGuardian && (
-          <button onClick={() => setShowUnavail(true)}
-            className="flex items-center gap-2 pl-3 pr-4 h-10 bg-red-500 text-white rounded-full shadow-raised hover:bg-red-600 active:scale-95 transition-all"
-          >
-            <UserX size={16} />
-            <span className="text-xs font-bold whitespace-nowrap">Nedostupnost</span>
-          </button>
+      {/* FAB — speed dial */}
+      <div className="fixed bottom-24 right-4 z-20 flex flex-col items-end gap-2">
+        {fabOpen && (
+          <>
+            {user?.role === 'PARENT' && (
+              <button
+                onClick={() => { setShowExternal(true); setFabOpen(false); }}
+                className="flex items-center gap-2 pl-3 pr-4 h-10 bg-blue-500 text-white rounded-full shadow-raised hover:bg-blue-600 active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2"
+              >
+                <UserCheck size={16} />
+                <span className="text-xs font-bold whitespace-nowrap">{t('calendar.fabExternal')}</span>
+              </button>
+            )}
+            {isGuardian && (
+              <button
+                onClick={() => { setShowAvail(true); setFabOpen(false); }}
+                className="flex items-center gap-2 pl-3 pr-4 h-10 bg-emerald-500 text-white rounded-full shadow-raised hover:bg-emerald-600 active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2"
+              >
+                <CalendarCheck size={16} />
+                <span className="text-xs font-bold whitespace-nowrap">{t('calendar.fabAvailability')}</span>
+              </button>
+            )}
+            {isGuardian && (
+              <button
+                onClick={() => { setShowUnavail(true); setFabOpen(false); }}
+                className="flex items-center gap-2 pl-3 pr-4 h-10 bg-red-500 text-white rounded-full shadow-raised hover:bg-red-600 active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2"
+              >
+                <UserX size={16} />
+                <span className="text-xs font-bold whitespace-nowrap">{t('calendar.fabUnavailability')}</span>
+              </button>
+            )}
+          </>
         )}
         {canCreate && (
-          <button onClick={() => setShowForm(true)}
-            className="w-14 h-14 bg-gradient-to-br from-primary to-accent text-white rounded-full shadow-raised flex items-center justify-center hover:scale-105 hover:shadow-[0_0_0_8px_rgba(99,102,241,0.15)] active:scale-95 transition-all duration-200"
+          <button
+            onClick={() => {
+              if (fabOpen) {
+                setShowForm(true);
+                setFabOpen(false);
+              } else if (user?.role === 'PARENT' || isGuardian) {
+                setFabOpen(true);
+              } else {
+                setShowForm(true);
+              }
+            }}
+            className={`w-14 h-14 bg-gradient-to-br from-primary to-accent text-white rounded-full shadow-raised flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 ${
+              fabOpen ? 'rotate-45' : ''
+            }`}
+            aria-label={t('calendar.addEvent')}
           >
             <Plus size={26} strokeWidth={2.5} />
           </button>
         )}
       </div>
+      {fabOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-10"
+          aria-label={t('common.cancel')}
+          onClick={() => setFabOpen(false)}
+        />
+      )}
 
       <Sheet open={showForm} onClose={() => setShowForm(false)} title={t('calendar.addEvent')} fullScreen>
         <EventForm onClose={() => setShowForm(false)} defaultDate={currentDate} />

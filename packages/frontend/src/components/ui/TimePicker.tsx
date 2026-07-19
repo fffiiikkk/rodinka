@@ -7,6 +7,7 @@
  *   – 5-minute minute steps
  */
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronUp, ChevronDown, Clock } from 'lucide-react';
 
 interface Props {
@@ -29,6 +30,7 @@ const TIME_PANEL_H = 320; // approximate rendered height
 const TIME_PANEL_W = 288; // w-72
 
 export default function TimePicker({ value, onChange, label }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'drum' | 'quick'>('drum');
   const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
@@ -107,16 +109,16 @@ export default function TimePicker({ value, onChange, label }: Props) {
           >
             {/* Tabs */}
             <div className="flex border-b border-border">
-              {(['drum', 'quick'] as const).map((t) => (
+              {(['drum', 'quick'] as const).map((tabId) => (
                 <button
-                  key={t}
+                  key={tabId}
                   type="button"
-                  onClick={() => setTab(t)}
+                  onClick={() => setTab(tabId)}
                   className={`flex-1 py-2 text-sm font-semibold transition-colors ${
-                    tab === t ? 'text-primary border-b-2 border-primary' : 'text-ink-muted'
+                    tab === tabId ? 'text-primary border-b-2 border-primary' : 'text-ink-muted'
                   }`}
                 >
-                  {t === 'drum' ? '🕐 Přesný čas' : '⚡ Rychlé'}
+                  {tabId === 'drum' ? t('timePicker.precise') : t('timePicker.quick')}
                 </button>
               ))}
             </div>
@@ -193,14 +195,14 @@ export default function TimePicker({ value, onChange, label }: Props) {
               </div>
             )}
 
-            {/* Confirm */}
+            {/* Close — time already applied on each change */}
             <div className="px-3 pb-3">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="btn-primary w-full text-sm py-2"
+                className="w-full text-sm py-2 text-ink-muted hover:text-ink font-semibold transition-colors"
               >
-                ✓ {pad(h)}:{pad(m)}
+                {t('common.close')}
               </button>
             </div>
           </div>
