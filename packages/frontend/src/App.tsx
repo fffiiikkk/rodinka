@@ -36,12 +36,14 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AnimatedContent({ children }: { children: React.ReactNode }) {
+function AnimatedRoutes() {
   const location = useLocation();
-  // mode="popLayout" pops the exiting page out of document flow (absolute)
-  // before animating it out, so the entering page never stacks on top of it.
-  // This avoids both the blank-screen issue (mode="wait") and the double-
-  // content issue (mode="sync").
+  // IMPORTANT: <Routes location={location}> must receive the location captured
+  // in this render. During a transition AnimatePresence keeps the exiting
+  // motion.div mounted; because its Routes are pinned to the OLD location it
+  // keeps showing the old page. Without the location prop the exiting copy
+  // would re-read the router context and render the NEW page too — which is
+  // what caused pages to appear twice.
   return (
     <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
@@ -51,13 +53,43 @@ function AnimatedContent({ children }: { children: React.ReactNode }) {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.12, ease: 'easeOut' }}
       >
-        {children}
+        {/* Inner Suspense: lazy page chunks load without unmounting the app
+            shell (TopBar/BottomNav) or fighting the route transition */}
+        <Suspense fallback={<LoadingScreen />}>
+        <Routes location={location}>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/event/:id" element={<EventDetailPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/badges" element={<BadgesPage />} />
+          <Route path="/week" element={<WeeklyOverviewPage />} />
+          <Route path="/schedule" element={<SchedulePage />} />
+          <Route path="/kids-timeline" element={<KidsTimelinePage />} />
+          <Route
+            path="/admin/*"
+            element={
+              <AdminGuard>
+                <AdminPage />
+              </AdminGuard>
+            }
+          />
+          <Route
+            path="/reports/*"
+            element={
+              <AdminGuard>
+                <ReportsPage />
+              </AdminGuard>
+            }
+          />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+        </Suspense>
       </motion.div>
     </AnimatePresence>
   );
 }
 
-function AppShell({ children }: { children: React.ReactNode }) {
+function AppShell() {
   const { user } = useAuth();
   const theme = (user?.theme ?? 'klasika') as any;
   const colorMode = (user?.colorMode ?? 'SYSTEM') as any;
@@ -70,9 +102,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col min-h-dvh">
             <TopBar />
             <main className="flex-1 pb-nav">
-              <AnimatedContent>
-                {children}
-              </AnimatedContent>
+              <AnimatedRoutes />
             </main>
             <BottomNav />
             <PushPrompt />
@@ -94,35 +124,7 @@ export default function App() {
             path="/*"
             element={
               <AuthGuard>
-                <AppShell>
-                  <Routes>
-                    <Route path="/" element={<DashboardPage />} />
-                    <Route path="/calendar" element={<CalendarPage />} />
-                    <Route path="/event/:id" element={<EventDetailPage />} />
-                    <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/badges" element={<BadgesPage />} />
-                    <Route path="/week" element={<WeeklyOverviewPage />} />
-                    <Route path="/schedule" element={<SchedulePage />} />
-                    <Route path="/kids-timeline" element={<KidsTimelinePage />} />
-                    <Route
-                      path="/admin/*"
-                      element={
-                        <AdminGuard>
-                          <AdminPage />
-                        </AdminGuard>
-                      }
-                    />
-                    <Route
-                      path="/reports/*"
-                      element={
-                        <AdminGuard>
-                          <ReportsPage />
-                        </AdminGuard>
-                      }
-                    />
-                    <Route path="*" element={<NotFoundPage />} />
-                  </Routes>
-                </AppShell>
+                <AppShell />
               </AuthGuard>
             }
           />
